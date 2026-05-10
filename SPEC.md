@@ -42,9 +42,9 @@ The scaffold has three concerns, each documented in its own component spec:
   skills and subagent definitions agents invoke. Documented in [`specs/agents.md`](specs/agents.md); the
   rule documents themselves live in [`AGENTS.md`](AGENTS.md) and under [`.agents/`](.agents).
 
-The scaffold seeds [`AGENTS.md`](AGENTS.md), [`policy/README.md`](policy/README.md), and
+The scaffold seeds [`AGENTS.md`](AGENTS.md), [`SPEC.md`](SPEC.md),
+[`policy/README.md`](policy/README.md), and
 [`policy/verification-gates.md`](policy/verification-gates.md) once on first install and never overwrites
-them. A client project authors its own `SPEC.md` and any `specs/*.md` for its components from scratch —
-the scaffold ships no template. Everything else under `.agents/`, `.claude/agents/`, `.codex/`, `.opencode/`,
-`policy/`, and `tools/` is managed by the scaffold, except `tools/scaffold-sync.py`, which lives only in the
-scaffold.
+them. A client project authors that seeded file and any component specs under [`specs/`](specs) from that seed.
+Everything else under `.agents/`, `.claude/agents/`, `.codex/`, `.opencode/`, `policy/`, and `tools/` is
+managed by the scaffold, except `tools/scaffold-sync.py`, which lives only in the scaffold.

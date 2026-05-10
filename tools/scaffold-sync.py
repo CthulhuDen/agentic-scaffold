@@ -14,8 +14,8 @@ Subcommands:
                    copy the client's managed files onto it; commit. The
                    maintainer merges the branch into the default branch by hand.
 
-Both refuse to run if the relevant repository has uncommitted changes in the
-managed paths. Review the result with `git diff` (push) or `git log` (pull).
+See specs/sync.md for preconditions. Review the result with `git diff` (push)
+or `git log` (pull).
 """
 
 from __future__ import annotations
@@ -57,7 +57,12 @@ REVISION_FILE = ".agentic-scaffold-revision"
 class FileEntry:
     path: str
     cls: str
+    source: str | None = None
     indexes: str | None = None
+
+    @property
+    def source_path(self) -> str:
+        return self.source or self.path
 
 
 @dataclass(frozen=True)
@@ -80,7 +85,14 @@ def load_manifest(scaffold_root: Path) -> tuple[list[FileEntry], list[SymlinkEnt
         FileEntry(path=p, cls="managed") for p in data.get("managed", [])
     ]
     for e in data.get("stub", []):
-        files.append(FileEntry(path=e["path"], cls="stub", indexes=e.get("indexes")))
+        files.append(
+            FileEntry(
+                path=e["path"],
+                cls="stub",
+                source=e.get("source"),
+                indexes=e.get("indexes"),
+            )
+        )
     symlinks = [
         SymlinkEntry(path=e["path"], target=e["target"])
         for e in data.get("symlink", [])
@@ -108,10 +120,14 @@ def require_clean(repo: Path, paths: list[str], label: str) -> None:
     if result.returncode != 0:
         die(f"{label}: git status failed: {result.stderr.strip()}")
     if result.stdout.strip():
-        print(f"error: {label} has uncommitted changes in managed paths:", file=sys.stderr)
+        print(f"error: {label} has uncommitted changes in required paths:", file=sys.stderr)
         print(result.stdout, file=sys.stderr, end="")
         print("commit or stash before continuing.", file=sys.stderr)
         sys.exit(1)
+
+
+def unique_paths(paths: list[str]) -> list[str]:
+    return list(dict.fromkeys(paths))
 
 
 def require_no_real_files_at_symlink_paths(
@@ -180,8 +196,11 @@ def install_gitignore_block(client_root: Path) -> None:
 def push(scaffold_root: Path, client_root: Path) -> None:
     files, symlinks = load_manifest(scaffold_root)
     managed_paths = [f.path for f in files if f.cls == "managed"]
+    payload_source_paths = unique_paths(
+        ["manifest.toml", "tools/scaffold-sync.py", *[f.source_path for f in files]]
+    )
     symlink_paths = [s.path for s in symlinks]
-    require_clean(scaffold_root, managed_paths, "scaffold")
+    require_clean(scaffold_root, payload_source_paths, "scaffold")
     require_clean(
         client_root,
         managed_paths + symlink_paths + [REVISION_FILE, ".gitignore"],
@@ -213,9 +232,9 @@ def push(scaffold_root: Path, client_root: Path) -> None:
     additions_by_dir: defaultdict[str, list[str]] = defaultdict(list)
 
     for f in files:
-        src = scaffold_root / f.path
+        src = scaffold_root / f.source_path
         if not src.exists():
-            die(f"scaffold missing source: {f.path}")
+            die(f"scaffold missing source: {f.source_path}")
         dst = client_root / f.path
         if f.cls == "stub" and dst.exists():
             continue

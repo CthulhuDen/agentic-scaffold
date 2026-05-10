@@ -12,9 +12,10 @@ handled. Each entry has one of three classes:
 - **managed** — the scaffold owns the file. Push overwrites it in the client; pull copies it back from the
   client into the scaffold.
 - **stub** — the client owns the file after first seeding. Push writes it only when the file is absent in
-  the client; pull never reads it. A stub may declare `indexes = "<dir>/"`, identifying a directory the
-  stub summarizes — push prints a notice when new managed files appear directly in that directory so the
-  maintainer can update the index by hand.
+  the client; pull never reads it. A stub may declare `source = "<path>"`, identifying the scaffold template
+  copied to the client path; when absent, the scaffold source path matches the client path. A stub may
+  declare `indexes = "<dir>/"`, identifying a directory the stub summarizes — push prints a notice when new
+  managed files appear directly in that directory so the maintainer can update the index by hand.
 - **symlink** — push creates or replaces the named path as a symbolic link to the given target.
 
 ## `tools/scaffold-sync.py`
@@ -29,7 +30,8 @@ Run from the scaffold. Copies the scaffold's managed payload into the client pro
 
 Preconditions:
 
-- The scaffold has no uncommitted changes in any managed path.
+- The scaffold has no uncommitted changes in any client payload source: [`manifest.toml`](../manifest.toml),
+  [`tools/scaffold-sync.py`](../tools/scaffold-sync.py), every managed file, and every stub source file.
 - The client has no uncommitted changes in any managed path, in any path declared as a symlink, in
   `.agentic-scaffold-revision`, or in `.gitignore`.
 - No path declared as a symlink in the manifest exists in the client as a regular file or directory; push
@@ -40,8 +42,8 @@ Steps:
 1. Reads the client's recorded scaffold revision (if any). When the recorded SHA is absent from the
    scaffold's history, or is present but neither equal to `HEAD` nor an ancestor of it, push warns that the
    client holds edits the maintainer has not merged and prompts for confirmation before proceeding.
-2. Copies each managed file from the scaffold into the client, overwriting unconditionally. Each stub is
-   copied only when absent in the client. Each symlink is created or replaced.
+2. Copies each managed file from the scaffold into the client, overwriting unconditionally. Each stub source
+   is copied only when the client path is absent. Each symlink is created or replaced.
 3. Writes the scaffold's current `HEAD` SHA into the client's `.agentic-scaffold-revision`.
 4. Installs or refreshes the scaffold-owned block in the client's `.gitignore` (see
    [Gitignore block](#gitignore-block)).
@@ -58,8 +60,9 @@ Preconditions:
 - The client has no uncommitted changes in `.agentic-scaffold-revision`.
 - The client's `.agentic-scaffold-revision` names a commit reachable in the scaffold's history.
 
-Uncommitted changes in non-managed scaffold paths carry over to the incoming branch's working tree without
-being staged into the commit.
+Pull checks the whole scaffold worktree after copying client managed files to decide whether the incoming
+branch has changes to commit. A dirty non-managed scaffold path is part of that check, so the scaffold
+worktree must be clean before relying on pull's no-change result.
 
 Steps:
 

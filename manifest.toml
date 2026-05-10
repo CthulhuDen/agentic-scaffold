@@ -2,8 +2,10 @@
 #
 # managed: paths the installer owns — overwritten on push, pulled back from client on pull.
 # stub:    paths the project owns once seeded — written on first push only (when absent in
-#          the client) and never pulled. Optional `indexes = "<dir>/"` names a directory
-#          this stub summarizes; push emits a notice when new managed files appear there.
+#          the client) and never pulled. Optional `source = "<path>"` names a scaffold
+#          template to copy instead of the destination path. Optional `indexes = "<dir>/"`
+#          names a directory this stub summarizes; push emits a notice when new managed
+#          files appear there.
 # symlink: created on push pointing at the given target.
 
 managed = [
@@ -37,6 +39,10 @@ managed = [
 
 [[stub]]
 path = "AGENTS.md"
+
+[[stub]]
+path = "SPEC.md"
+source = "templates/SPEC.md"
 
 [[stub]]
 path = "policy/README.md"
