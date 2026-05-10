@@ -22,7 +22,7 @@ managed = [
   ".codex/hooks.json",
   ".codex/session-start.sh",
 
-  # .opencode/ — sync-check plugin (consumers install its dep via bun add).
+  # .opencode/ — sync-check plugin (OpenCode installs its dep on session start).
   ".opencode/plugin/sync-agents-check.ts",
 
   # policy/ — governance rules (project owns README and verification-gates).
@@ -44,6 +44,10 @@ indexes = "policy/"
 
 [[stub]]
 path = "policy/verification-gates.md"
+
+[[symlink]]
+path = "CLAUDE.md"
+target = "AGENTS.md"
 
 [[symlink]]
 path = ".claude/skills"

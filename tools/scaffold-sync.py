@@ -1,4 +1,4 @@
-#!/usr/bin/env -S uv run --script
+#!/usr/bin/env -S uv run --cache-dir .tmp/uv-cache --script
 # /// script
 # requires-python = ">=3.11"
 # dependencies = []
@@ -8,9 +8,9 @@
 Subcommands:
     push <client>  Write managed files into <client>; seed stubs only if absent;
                    install the scaffold .gitignore block; stamp
-                   <client>/.scaffold-revision with the scaffold's HEAD SHA.
+                   <client>/.agentic-scaffold-revision with the scaffold's HEAD SHA.
     pull <client>  Check out an incoming/<client>-<ts> branch in this scaffold
-                   from the revision recorded in <client>/.scaffold-revision;
+                   from the revision recorded in <client>/.agentic-scaffold-revision;
                    copy the client's managed files onto it; commit. The
                    maintainer merges the branch into the default branch by hand.
 
@@ -114,6 +114,20 @@ def require_clean(repo: Path, paths: list[str], label: str) -> None:
         sys.exit(1)
 
 
+def require_no_real_files_at_symlink_paths(
+    client_root: Path, symlinks: list[SymlinkEntry]
+) -> None:
+    for s in symlinks:
+        dst = client_root / s.path
+        if dst.is_symlink() or not dst.exists():
+            continue
+        die(
+            f"client has a regular file or directory at {s.path}; push would replace "
+            f"it with a symlink to {s.target}. move its content into {s.target} (or "
+            f"delete {s.path}) before re-running push."
+        )
+
+
 def head_sha(repo: Path) -> str:
     return git(repo, ["rev-parse", "HEAD"]).strip()
 
@@ -166,8 +180,14 @@ def install_gitignore_block(client_root: Path) -> None:
 def push(scaffold_root: Path, client_root: Path) -> None:
     files, symlinks = load_manifest(scaffold_root)
     managed_paths = [f.path for f in files if f.cls == "managed"]
+    symlink_paths = [s.path for s in symlinks]
     require_clean(scaffold_root, managed_paths, "scaffold")
-    require_clean(client_root, managed_paths + [REVISION_FILE, ".gitignore"], "client")
+    require_clean(
+        client_root,
+        managed_paths + symlink_paths + [REVISION_FILE, ".gitignore"],
+        "client",
+    )
+    require_no_real_files_at_symlink_paths(client_root, symlinks)
 
     scaffold_sha = head_sha(scaffold_root)
     rev_path = client_root / REVISION_FILE
@@ -243,7 +263,7 @@ def pull(scaffold_root: Path, client_root: Path) -> None:
     if not commit_exists(scaffold_root, recorded):
         die(
             f"recorded revision {recorded} is not in scaffold history; "
-            "resurrect the commit or set .scaffold-revision to a reachable base"
+            f"resurrect the commit or set {REVISION_FILE} to a reachable base"
         )
 
     base_branch = current_branch(scaffold_root)

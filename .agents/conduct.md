@@ -27,9 +27,9 @@ you write, edit, or review any documentation; every rule they state is binding.
 If you create a file during a task for research or exploratory purposes, delete it before considering the task
 complete, unless it lands in a directory that is already gitignored.
 
-## Keep uv caches inside the repository.
+## Invoke `tools/*` directly, not through an interpreter, and from the repository root.
 
-Every `uv run` invocation must run from the repository root and pass `--cache-dir .tmp/uv-cache`.
+Tools under `tools/` carry shebangs that handle their own runtime and resolve paths relative to cwd.
 
 ## Keep bash invocations to the simplest form that works.
 

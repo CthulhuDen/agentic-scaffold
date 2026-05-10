@@ -23,7 +23,7 @@ const IS_DESKTOP_SIDECAR = execPath.includes("OpenCode.app/")
 
 const TITLE = "agent files out of date"
 const MESSAGE =
-  ".opencode/agents/ is stale relative to .claude/agents/. Run: uv run --cache-dir .tmp/uv-cache tools/sync-agents.py"
+  ".opencode/agents/ is stale relative to .claude/agents/. Run: tools/sync-agents.py"
 const TOAST_DURATION_MS = 10_000
 
 export const SyncAgentsCheck: Plugin = async ({ client, directory }) => {
@@ -40,15 +40,7 @@ export const SyncAgentsCheck: Plugin = async ({ client, directory }) => {
 
 async function runCheck(client: Client, cwd: string): Promise<void> {
   try {
-    await exec("uv", [
-      "run",
-      "--cache-dir",
-      ".tmp/uv-cache",
-      "--quiet",
-      "tools/sync-agents.py",
-      "--check",
-      "--opencode",
-    ], { cwd })
+    await exec("tools/sync-agents.py", ["--check", "--opencode"], { cwd })
     return
   } catch {
     // Non-zero exit (or spawn failure) — treat as "needs the user's attention" and surface.

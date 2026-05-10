@@ -1,3 +1,5 @@
+<!-- These instructions live in `AGENTS.md` at the repository root; `CLAUDE.md` is a symlink to that file. -->
+
 **Your first action this session is to read [`.agents/conduct.md`](.agents/conduct.md) and
 [`.agents/implementer.md`](.agents/implementer.md) in full**. The rules in those files are standing obligations
 for the rest of the run; treat every one as binding from that point on.

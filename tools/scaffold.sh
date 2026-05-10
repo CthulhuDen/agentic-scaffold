@@ -25,4 +25,4 @@ case "$action" in
 esac
 
 cd "$scaffold_path"
-exec uv run --cache-dir .tmp/uv-cache tools/scaffold-sync.py "$remote_action" "$client_path"
+exec tools/scaffold-sync.py "$remote_action" "$client_path"
