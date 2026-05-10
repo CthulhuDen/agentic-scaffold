@@ -1,0 +1,321 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""Sync the agentic scaffold between this repo and a client project.
+
+Subcommands:
+    push <client>  Write managed files into <client>; seed stubs only if absent;
+                   install the scaffold .gitignore block; stamp
+                   <client>/.scaffold-revision with the scaffold's HEAD SHA.
+    pull <client>  Check out an incoming/<client>-<ts> branch in this scaffold
+                   from the revision recorded in <client>/.scaffold-revision;
+                   copy the client's managed files onto it; commit. The
+                   maintainer merges the branch into the default branch by hand.
+
+Both refuse to run if the relevant repository has uncommitted changes in the
+managed paths. Review the result with `git diff` (push) or `git log` (pull).
+"""
+
+from __future__ import annotations
+
+import argparse
+import shutil
+import subprocess
+import sys
+import tomllib
+from collections import defaultdict
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import NoReturn
+
+GITIGNORE_BEGIN = "# >>> agentic-scaffold begin <<<"
+GITIGNORE_END = "# >>> agentic-scaffold end <<<"
+GITIGNORE_BLOCK = """\
+# >>> agentic-scaffold begin <<<
+# Managed by the agentic scaffold installer. Do not edit between markers.
+/.tmp/
+__pycache__/
+*.py[cod]
+/.claude/*
+!/.claude/agents/
+!/.claude/skills
+/.opencode/*
+!/.opencode/plugin/
+/.codex/*
+!/.codex/hooks.json
+!/.codex/session-start.sh
+# >>> agentic-scaffold end <<<
+"""
+
+REVISION_FILE = ".agentic-scaffold-revision"
+
+
+@dataclass(frozen=True)
+class FileEntry:
+    path: str
+    cls: str
+    indexes: str | None = None
+
+
+@dataclass(frozen=True)
+class SymlinkEntry:
+    path: str
+    target: str
+
+
+def die(msg: str) -> NoReturn:
+    print(f"error: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def load_manifest(scaffold_root: Path) -> tuple[list[FileEntry], list[SymlinkEntry]]:
+    manifest_path = scaffold_root / "manifest.toml"
+    if not manifest_path.exists():
+        die(f"manifest not found at {manifest_path}")
+    data = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
+    files: list[FileEntry] = [
+        FileEntry(path=p, cls="managed") for p in data.get("managed", [])
+    ]
+    for e in data.get("stub", []):
+        files.append(FileEntry(path=e["path"], cls="stub", indexes=e.get("indexes")))
+    symlinks = [
+        SymlinkEntry(path=e["path"], target=e["target"])
+        for e in data.get("symlink", [])
+    ]
+    return files, symlinks
+
+
+def git(repo: Path, args: list[str]) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        capture_output=True, text=True, check=False,
+    )
+    if result.returncode != 0:
+        die(f"git {' '.join(args)} failed in {repo}: {result.stderr.strip()}")
+    return result.stdout
+
+
+def require_clean(repo: Path, paths: list[str], label: str) -> None:
+    if not paths:
+        return
+    result = subprocess.run(
+        ["git", "-C", str(repo), "status", "--porcelain", "--", *paths],
+        capture_output=True, text=True, check=False,
+    )
+    if result.returncode != 0:
+        die(f"{label}: git status failed: {result.stderr.strip()}")
+    if result.stdout.strip():
+        print(f"error: {label} has uncommitted changes in managed paths:", file=sys.stderr)
+        print(result.stdout, file=sys.stderr, end="")
+        print("commit or stash before continuing.", file=sys.stderr)
+        sys.exit(1)
+
+
+def head_sha(repo: Path) -> str:
+    return git(repo, ["rev-parse", "HEAD"]).strip()
+
+
+def commit_exists(repo: Path, sha: str) -> bool:
+    return subprocess.run(
+        ["git", "-C", str(repo), "cat-file", "-e", f"{sha}^{{commit}}"],
+        capture_output=True, check=False,
+    ).returncode == 0
+
+
+def is_ancestor(repo: Path, ancestor: str, descendant: str) -> bool:
+    return subprocess.run(
+        ["git", "-C", str(repo), "merge-base", "--is-ancestor", ancestor, descendant],
+        capture_output=True, check=False,
+    ).returncode == 0
+
+
+def confirm(prompt: str) -> bool:
+    print(prompt, file=sys.stderr, end="")
+    sys.stderr.flush()
+    try:
+        return input().strip().lower() == "y"
+    except EOFError:
+        return False
+
+
+def current_branch(repo: Path) -> str:
+    return git(repo, ["rev-parse", "--abbrev-ref", "HEAD"]).strip()
+
+
+def replace_block(text: str, begin: str, end: str, block: str) -> str:
+    if begin not in text:
+        if text and not text.endswith("\n"):
+            text += "\n"
+        return text + block
+    before, _, rest = text.partition(begin)
+    _, _, after = rest.partition(end + "\n")
+    return before + block + after
+
+
+def install_gitignore_block(client_root: Path) -> None:
+    gitignore = client_root / ".gitignore"
+    existing = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
+    new = replace_block(existing, GITIGNORE_BEGIN, GITIGNORE_END, GITIGNORE_BLOCK)
+    if new != existing:
+        gitignore.write_text(new, encoding="utf-8")
+
+
+def push(scaffold_root: Path, client_root: Path) -> None:
+    files, symlinks = load_manifest(scaffold_root)
+    managed_paths = [f.path for f in files if f.cls == "managed"]
+    require_clean(scaffold_root, managed_paths, "scaffold")
+    require_clean(client_root, managed_paths + [REVISION_FILE, ".gitignore"], "client")
+
+    scaffold_sha = head_sha(scaffold_root)
+    rev_path = client_root / REVISION_FILE
+    if rev_path.exists():
+        recorded = rev_path.read_text(encoding="utf-8").strip()
+        if recorded != scaffold_sha and not (
+            commit_exists(scaffold_root, recorded)
+            and is_ancestor(scaffold_root, recorded, scaffold_sha)
+        ):
+            print(
+                f"warning: client recorded {recorded[:12]} is not an ancestor of scaffold "
+                f"HEAD {scaffold_sha[:12]}.",
+                file=sys.stderr,
+            )
+            print(
+                "this typically means the client pushed edits the maintainer has not merged "
+                "yet; pushing now would overwrite the unmerged work in the client's managed files.",
+                file=sys.stderr,
+            )
+            if not confirm("continue? [y/N] "):
+                die("aborted")
+
+    additions_by_dir: defaultdict[str, list[str]] = defaultdict(list)
+
+    for f in files:
+        src = scaffold_root / f.path
+        if not src.exists():
+            die(f"scaffold missing source: {f.path}")
+        dst = client_root / f.path
+        if f.cls == "stub" and dst.exists():
+            continue
+        is_new_managed = f.cls == "managed" and not dst.exists()
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        if is_new_managed:
+            parent = str(Path(f.path).parent).rstrip("/") + "/"
+            additions_by_dir[parent].append(f.path)
+
+    for s in symlinks:
+        dst = client_root / s.path
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if dst.is_symlink() or dst.exists():
+            dst.unlink()
+        dst.symlink_to(s.target)
+
+    rev_path.write_text(scaffold_sha + "\n", encoding="utf-8")
+    install_gitignore_block(client_root)
+
+    for f in files:
+        if f.cls != "stub" or not f.indexes:
+            continue
+        added = additions_by_dir.get(f.indexes, [])
+        if added:
+            print(f"notice: new managed files under {f.indexes}: {', '.join(added)}")
+            print(f"        consider updating {f.path}")
+
+    print(f"pushed scaffold@{scaffold_sha[:12]} to {client_root}")
+
+
+def pull(scaffold_root: Path, client_root: Path) -> None:
+    files, _ = load_manifest(scaffold_root)
+    managed_paths = [f.path for f in files if f.cls == "managed"]
+    require_clean(scaffold_root, managed_paths, "scaffold")
+    require_clean(client_root, [REVISION_FILE], "client")
+
+    rev_path = client_root / REVISION_FILE
+    if not rev_path.exists():
+        die(
+            f"{rev_path} not found; run push from the scaffold to establish a "
+            "merge base before pulling from this client"
+        )
+    recorded = rev_path.read_text(encoding="utf-8").strip()
+    if not commit_exists(scaffold_root, recorded):
+        die(
+            f"recorded revision {recorded} is not in scaffold history; "
+            "resurrect the commit or set .scaffold-revision to a reachable base"
+        )
+
+    base_branch = current_branch(scaffold_root)
+    client_name = client_root.name
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    branch = f"incoming/{client_name}-{timestamp}"
+    git(scaffold_root, ["checkout", "-b", branch, recorded])
+
+    try:
+        for f in files:
+            if f.cls != "managed":
+                continue
+            src = client_root / f.path
+            if not src.exists():
+                print(f"warning: client missing managed file {f.path}; skipping", file=sys.stderr)
+                continue
+            dst = scaffold_root / f.path
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+
+        status = git(scaffold_root, ["status", "--porcelain"])
+        if not status.strip():
+            print(f"no changes from {client_name}; removing empty branch")
+            git(scaffold_root, ["checkout", base_branch])
+            git(scaffold_root, ["branch", "-D", branch])
+            return
+
+        git(scaffold_root, ["add", "--", *managed_paths])
+        client_sha = head_sha(client_root)
+        git(scaffold_root, ["commit", "-m", f"incoming from {client_name} @ {client_sha[:12]}"])
+        new_sha = head_sha(scaffold_root)
+        rev_path.write_text(new_sha + "\n", encoding="utf-8")
+    except BaseException:
+        subprocess.run(
+            ["git", "-C", str(scaffold_root), "checkout", base_branch],
+            capture_output=True, check=False,
+        )
+        subprocess.run(
+            ["git", "-C", str(scaffold_root), "branch", "-D", branch],
+            capture_output=True, check=False,
+        )
+        raise
+
+    print(f"created branch {branch} from {recorded[:12]}")
+    print(f"recorded {new_sha[:12]} in {REVISION_FILE} on the client side")
+    print(f"to merge:   git checkout {base_branch} && git merge {branch}")
+
+
+def find_scaffold_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    for name in ("push", "pull"):
+        sp = sub.add_parser(name)
+        sp.add_argument("client", help="path to the client project root")
+    args = parser.parse_args(argv)
+
+    scaffold_root = find_scaffold_root()
+    client_root = Path(args.client).resolve()
+    for label, root in (("scaffold", scaffold_root), ("client", client_root)):
+        if not (root / ".git").exists():
+            die(f"{label} {root} is not a git repository")
+
+    if args.cmd == "push":
+        push(scaffold_root, client_root)
+    else:
+        pull(scaffold_root, client_root)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

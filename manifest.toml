@@ -1,0 +1,50 @@
+# Files the agentic-scaffold installer manages.
+#
+# managed: paths the installer owns — overwritten on push, pulled back from client on pull.
+# stub:    paths the project owns once seeded — written on first push only (when absent in
+#          the client) and never pulled. Optional `indexes = "<dir>/"` names a directory
+#          this stub summarizes; push emits a notice when new managed files appear there.
+# symlink: created on push pointing at the given target.
+
+managed = [
+  # .agents/ — conduct, implementer, skills.
+  ".agents/conduct.md",
+  ".agents/implementer.md",
+  ".agents/skills/code-review/SKILL.md",
+  ".agents/skills/roadmap/SKILL.md",
+  ".agents/skills/roadmap-item/SKILL.md",
+
+  # .claude/agents/ — canonical subagent prompts.
+  ".claude/agents/code-reviewer.md",
+  ".claude/agents/implementer.md",
+
+  # .codex/ — SessionStart hook and wrapper.
+  ".codex/hooks.json",
+  ".codex/session-start.sh",
+
+  # .opencode/ — sync-check plugin (consumers install its dep via bun add).
+  ".opencode/plugin/sync-agents-check.ts",
+
+  # policy/ — governance rules (project owns README and verification-gates).
+  "policy/code-quality.md",
+  "policy/doc-quality.md",
+  "policy/markdown.md",
+
+  # tools/ — installer wrapper and agent regenerator.
+  "tools/scaffold.sh",
+  "tools/sync-agents.py",
+]
+
+[[stub]]
+path = "AGENTS.md"
+
+[[stub]]
+path = "policy/README.md"
+indexes = "policy/"
+
+[[stub]]
+path = "policy/verification-gates.md"
+
+[[symlink]]
+path = ".claude/skills"
+target = "../.agents/skills"

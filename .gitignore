@@ -1,0 +1,13 @@
+/.tmp/
+__pycache__/
+*.py[cod]
+
+# Per-user harness state from running an agent against the scaffold itself.
+/.claude/*
+!/.claude/agents/
+!/.claude/skills
+/.opencode/*
+!/.opencode/plugin/
+/.codex/*
+!/.codex/hooks.json
+!/.codex/session-start.sh
