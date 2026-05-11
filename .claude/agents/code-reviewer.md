@@ -166,7 +166,7 @@ Execute these steps in order:
 
 5. **Apply the constraint-integrity rule.** When the change set modifies `SPEC.md`, `specs/*.md`, or `policy/*.md`,
    run `git diff` against each affected file (step-2 baseline) and apply the test in
-   [`policy/code-quality.md`](../../policy/code-quality.md#constraint-integrity) to each substantive edit. Failures
+   [`policy/doc-quality.md`](../../policy/doc-quality.md#constraint-integrity) to each substantive edit. Failures
    are `blocking`; cite the specific deletion or relaxation.
 
 6. **Verify policy and SPEC conformance.** For every modified file, check that the change conforms to the rules in

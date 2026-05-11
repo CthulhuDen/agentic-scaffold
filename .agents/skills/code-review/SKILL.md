@@ -11,7 +11,10 @@ description: >-
 # `code-reviewer` subagent
 
 Independent reviewer that verifies code and docs against `policy/` and `SPEC.md`. The implementing agent invokes
-it before each commit; the user may also invoke it on demand for a one-off review.
+it before each commit; the user may also invoke it on demand for a one-off review or to run the loop to prepare
+a changeset for commit.
+
+When the user requests a review without explicitly asking to commit afterward, do not commit.
 
 ## Loop
 

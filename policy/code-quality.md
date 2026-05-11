@@ -54,21 +54,3 @@ Categories (c)–(e) are encouraged. Drift between specs, code, and policies ero
 
 Anything else — unrelated refactors, tangential cleanups, "while I was here" fixes — is scope creep.
 An "out of scope" disclaimer in the change description does not exempt an edit.
-
-## Constraint integrity
-
-Edits to specs (`SPEC.md`, `specs/*.md`) and policy (`policy/*.md`) must stand on their own merits, independent
-of any code modified alongside them. The test:
-
-> *Would this edit make sense if the implementation it accompanies weren't being made?*
-
-Edits that fail this test are constraint-weakening and are rejected, even when each file passes its linter and
-the post-edit spec agrees with the code.
-
-Examples of constraint-weakening:
-
-- a rule dropped or relaxed (`must` → `should`, `never` → `usually`, a `requires` clause removed);
-- an `Out of scope` item silently removed (now in scope without acceptance text);
-- acceptance criteria narrowed mid-iteration to match what the code happens to produce;
-- an invariant the code cannot otherwise express, removed or paraphrased weaker;
-- a previously-named failure mode dropped from a "Failure modes" section.
