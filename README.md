@@ -53,7 +53,13 @@ tools/scaffold.sh push /path/to/agentic-scaffold
 ```
 
 This invokes `scaffold-sync.py pull` in the scaffold. It reads the SHA recorded in the project's
-`.agentic-scaffold-revision`, checks out an `incoming/<client>-<ts>` branch from that commit, copies the
-project's managed files onto it, commits, and stamps `.agentic-scaffold-revision` on the client side with the
-new incoming-branch commit. The maintainer reviews and merges that branch into the default branch by hand,
-resolving conflicts with concurrent edits from other clients the normal way.
+`.agentic-scaffold-revision` and chooses between a fast path and an incoming-branch fallback.
+
+**Fast path.** When the recorded SHA equals local scaffold `main` and `main@{upstream}` is an ancestor of
+`main`, or it equals `main@{upstream}` and local `main` is an ancestor of `main@{upstream}`, the script
+commits the project's managed-file edits directly on `main` and stamps `.agentic-scaffold-revision` with the
+new commit. In the second case, `main` is fast-forwarded to the recorded SHA first.
+
+**Incoming-branch fallback.** Otherwise the script checks out an `incoming/<client>-<ts>` branch from the
+recorded commit, copies the project's managed files onto it, commits, and prints the merge command for the
+maintainer to run by hand.

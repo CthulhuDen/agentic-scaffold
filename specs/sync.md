@@ -53,8 +53,11 @@ Steps:
 
 ### `pull <client>`
 
-Run from the scaffold. Drafts an incoming branch carrying the client's edits to managed files. The
-maintainer merges the branch into the scaffold's default branch by hand.
+Run from the scaffold. Applies the client's edits to managed files. Pull commits directly on `main` when
+either local `main` equals the recorded scaffold revision and is at or ahead of `main@{upstream}`, or
+`main@{upstream}` equals the recorded revision and local `main` lags or matches it (in which case `main` is
+fast-forwarded to the recorded revision first). Other pulls draft an incoming branch for the maintainer to
+merge by hand.
 
 Preconditions:
 
@@ -64,21 +67,39 @@ Preconditions:
 
 Pull detects no-change by running `git status --porcelain` on the whole scaffold worktree, not just the managed
 paths, so a dirty non-managed path defeats the check and pull proceeds as if managed files had changed.
-Uncommitted changes in non-managed scaffold paths never enter the incoming commit — Step 4 stages only the
-managed paths — but they will keep pull from short-circuiting on an unchanged client.
+Uncommitted changes in non-managed scaffold paths never enter the pull commit because pull stages only managed
+paths.
 
-Steps:
+Shared steps:
+
+1. Reads the recorded scaffold revision from the client's `.agentic-scaffold-revision`.
+2. Takes the direct-to-main path if either local `main` equals the recorded revision and is at or ahead of
+   `main@{upstream}`, or `main@{upstream}` equals the recorded revision and local `main` lags or matches it;
+   otherwise takes the incoming-branch path.
+
+Direct-to-main path:
+
+1. Checks out `main`. If `main` lags behind the recorded revision, fast-forwards `main` to it.
+2. Copies each managed file from the client onto `main`. Files missing in the client are skipped with a warning.
+3. If nothing changed, restores the previous branch and exits without committing.
+4. Otherwise stages only the managed paths, commits with message
+   `incoming from <client-name> @ <client-sha>`, and writes the new commit SHA into the client's
+   `.agentic-scaffold-revision`.
+
+If any step after checking out `main` fails, pull resets `main` back to its pre-pull commit, restores managed
+files, and returns to the previous branch.
+
+Incoming-branch path:
 
 1. Checks out `incoming/<client-name>-<UTC-timestamp>` in the scaffold from the recorded revision.
 2. Copies each managed file from the client onto the branch. Files missing in the client are skipped
    with a warning.
 3. If nothing changed, deletes the incoming branch, restores the previous branch, and exits without
    committing.
-4. Otherwise stages only the managed paths and commits with message
-   `incoming from <client-name> @ <client-sha>`.
-5. Writes the new branch-tip SHA into the client's `.agentic-scaffold-revision`, advancing the recorded
-   merge base for the next push to this client.
-6. Prints the merge command for the maintainer to run by hand.
+4. Otherwise stages only the managed paths, commits with message
+   `incoming from <client-name> @ <client-sha>`, and writes the new branch-tip SHA into the client's
+   `.agentic-scaffold-revision`.
+5. Prints the merge command for the maintainer to run by hand.
 
 If any step after branch creation fails, pull restores the previous branch and deletes the incoming branch.
 
@@ -97,11 +118,12 @@ client. A `tools/scaffold.sh push` invokes `scaffold-sync.py pull`, and `tools/s
 
 ## Revision tracking
 
-`.agentic-scaffold-revision` in the client records the scaffold commit that the client's managed files
-were last reconciled against. Push updates it to the scaffold's `HEAD`; pull updates it to the tip of the
-freshly-created incoming branch. The recorded SHA is the merge base for this client's next push and pull.
-When two clients diverge from a shared scaffold commit and both upstream their edits, the maintainer
-resolves a 3-way merge between two incoming branches in the scaffold repository.
+`.agentic-scaffold-revision` in the client records the scaffold commit that the client's managed files were
+last reconciled against. Push updates it to the scaffold's `HEAD`; pull updates it to the new scaffold commit
+it created — the direct main commit, or the tip of the freshly-created incoming branch. The recorded SHA is
+the merge base for this client's next push and pull. When two clients diverge from a shared scaffold commit
+and both upstream their edits, the maintainer resolves a 3-way merge between two incoming branches in the
+scaffold repository.
 
 ## Scaffold path cache
 
@@ -121,7 +143,7 @@ content outside the markers is untouched.
 - **No upstreaming of new files from a client.** Pull is bounded by the manifest. To add a new file to the
   scaffold, add it in the scaffold repo under a managed directory or list it in
   [`manifest.yaml`](../manifest.yaml), and rely on the next push to deliver it.
-- **No automatic merges.** Pull produces an incoming branch the maintainer merges by hand, resolving
-  conflicts the normal way.
+- **No automatic merges of incoming branches.** When pull falls back to an incoming branch, the maintainer
+  merges it by hand, resolving conflicts the normal way.
 - **No version tags.** Each client tracks the scaffold's `HEAD` SHA in `.agentic-scaffold-revision`;
   tagged releases are not part of the workflow.

@@ -12,10 +12,7 @@ Subcommands:
                    install the scaffold .gitignore block; stamp
                    <client>/.agentic-scaffold-revision with the scaffold's HEAD SHA;
                    remember this scaffold's absolute path under <client>/.tmp/.
-    pull <client>  Check out an incoming/<client>-<ts> branch in this scaffold
-                   from the revision recorded in <client>/.agentic-scaffold-revision;
-                   copy the client's managed files onto it; commit. The
-                   maintainer merges the branch into the default branch by hand.
+    pull <client>  Apply the client's managed-file edits according to specs/sync.md.
 
 See specs/sync.md for preconditions. Review the result with `git diff` (push)
 or `git log` (pull).
@@ -57,6 +54,7 @@ __pycache__/
 REVISION_FILE = ".agentic-scaffold-revision"
 LAST_SCAFFOLD_PATH_FILE = ".tmp/agentic-scaffold-path"
 MANIFEST_FILE = "manifest.yaml"
+MAIN_BRANCH = "main"
 
 
 @dataclass(frozen=True)
@@ -265,6 +263,16 @@ def head_sha(repo: Path) -> str:
     return git(repo, ["rev-parse", "HEAD"]).strip()
 
 
+def resolve_commit(repo: Path, ref: str) -> str | None:
+    result = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "--verify", f"{ref}^{{commit}}"],
+        capture_output=True, text=True, check=False,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
 def commit_exists(repo: Path, sha: str) -> bool:
     return subprocess.run(
         ["git", "-C", str(repo), "cat-file", "-e", f"{sha}^{{commit}}"],
@@ -290,6 +298,18 @@ def confirm(prompt: str) -> bool:
 
 def current_branch(repo: Path) -> str:
     return git(repo, ["rev-parse", "--abbrev-ref", "HEAD"]).strip()
+
+
+def can_pull_directly_to_main(repo: Path, recorded: str) -> bool:
+    main_sha = resolve_commit(repo, MAIN_BRANCH)
+    upstream_sha = resolve_commit(repo, f"{MAIN_BRANCH}@{{upstream}}")
+    if main_sha is None or upstream_sha is None:
+        return False
+    if recorded == main_sha and is_ancestor(repo, upstream_sha, main_sha):
+        return True
+    if recorded == upstream_sha and is_ancestor(repo, main_sha, upstream_sha):
+        return True
+    return False
 
 
 def replace_block(text: str, begin: str, end: str, block: str) -> str:
@@ -390,6 +410,92 @@ def push(scaffold_root: Path, client_root: Path) -> None:
     print(f"pushed scaffold@{scaffold_sha[:12]} to {client_root}")
 
 
+def copy_managed_files(
+    files: list[FileEntry], scaffold_root: Path, client_root: Path
+) -> None:
+    for f in files:
+        if f.cls != "managed":
+            continue
+        src = client_root / f.path
+        if not src.exists():
+            print(f"warning: client missing managed file {f.path}; skipping", file=sys.stderr)
+            continue
+        dst = scaffold_root / f.path
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+
+
+def commit_managed_files(
+    scaffold_root: Path, client_root: Path, managed_paths: list[str], client_name: str
+) -> str:
+    git(scaffold_root, ["add", "--", *managed_paths])
+    client_sha = head_sha(client_root)
+    git(scaffold_root, ["commit", "-m", f"incoming from {client_name} @ {client_sha[:12]}"])
+    return head_sha(scaffold_root)
+
+
+def restore_managed_files(scaffold_root: Path, managed_paths: list[str]) -> None:
+    if not managed_paths:
+        return
+    subprocess.run(
+        ["git", "-C", str(scaffold_root), "checkout", "HEAD", "--", *managed_paths],
+        capture_output=True, check=False,
+    )
+
+
+def pull_directly_to_main(
+    scaffold_root: Path,
+    client_root: Path,
+    files: list[FileEntry],
+    managed_paths: list[str],
+    rev_path: Path,
+    base_branch: str,
+    client_name: str,
+    recorded: str,
+) -> None:
+    main_sha_before = resolve_commit(scaffold_root, MAIN_BRANCH)
+    git(scaffold_root, ["checkout", MAIN_BRANCH])
+
+    try:
+        if main_sha_before is not None and main_sha_before != recorded:
+            git(scaffold_root, ["merge", "--ff-only", recorded])
+
+        copy_managed_files(files, scaffold_root, client_root)
+
+        status = git(scaffold_root, ["status", "--porcelain"])
+        if not status.strip():
+            print(f"no changes from {client_name}; {MAIN_BRANCH} unchanged")
+            if base_branch != MAIN_BRANCH:
+                git(scaffold_root, ["checkout", base_branch])
+            return
+
+        new_sha = commit_managed_files(
+            scaffold_root, client_root, managed_paths, client_name
+        )
+        rev_path.write_text(new_sha + "\n", encoding="utf-8")
+    except BaseException:
+        current_main = resolve_commit(scaffold_root, MAIN_BRANCH)
+        if (
+            main_sha_before is not None
+            and current_main is not None
+            and current_main != main_sha_before
+        ):
+            subprocess.run(
+                ["git", "-C", str(scaffold_root), "reset", "--soft", main_sha_before],
+                capture_output=True, check=False,
+            )
+        restore_managed_files(scaffold_root, managed_paths)
+        if base_branch != MAIN_BRANCH:
+            subprocess.run(
+                ["git", "-C", str(scaffold_root), "checkout", base_branch],
+                capture_output=True, check=False,
+            )
+        raise
+
+    print(f"committed {new_sha[:12]} directly to {MAIN_BRANCH}")
+    print(f"recorded {new_sha[:12]} in {REVISION_FILE} on the client side")
+
+
 def pull(scaffold_root: Path, client_root: Path) -> None:
     files, _ = load_manifest(scaffold_root)
     managed_paths = [f.path for f in files if f.cls == "managed"]
@@ -411,21 +517,25 @@ def pull(scaffold_root: Path, client_root: Path) -> None:
 
     base_branch = current_branch(scaffold_root)
     client_name = client_root.name
+    if can_pull_directly_to_main(scaffold_root, recorded):
+        pull_directly_to_main(
+            scaffold_root,
+            client_root,
+            files,
+            managed_paths,
+            rev_path,
+            base_branch,
+            client_name,
+            recorded,
+        )
+        return
+
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     branch = f"incoming/{client_name}-{timestamp}"
     git(scaffold_root, ["checkout", "-b", branch, recorded])
 
     try:
-        for f in files:
-            if f.cls != "managed":
-                continue
-            src = client_root / f.path
-            if not src.exists():
-                print(f"warning: client missing managed file {f.path}; skipping", file=sys.stderr)
-                continue
-            dst = scaffold_root / f.path
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
+        copy_managed_files(files, scaffold_root, client_root)
 
         status = git(scaffold_root, ["status", "--porcelain"])
         if not status.strip():
@@ -434,10 +544,9 @@ def pull(scaffold_root: Path, client_root: Path) -> None:
             git(scaffold_root, ["branch", "-D", branch])
             return
 
-        git(scaffold_root, ["add", "--", *managed_paths])
-        client_sha = head_sha(client_root)
-        git(scaffold_root, ["commit", "-m", f"incoming from {client_name} @ {client_sha[:12]}"])
-        new_sha = head_sha(scaffold_root)
+        new_sha = commit_managed_files(
+            scaffold_root, client_root, managed_paths, client_name
+        )
         rev_path.write_text(new_sha + "\n", encoding="utf-8")
     except BaseException:
         subprocess.run(
