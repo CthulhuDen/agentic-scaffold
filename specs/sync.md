@@ -6,16 +6,17 @@ clients diverge from a known common ancestor and produce real 3-way merges.
 
 ## Manifest
 
-[`manifest.toml`](../manifest.toml) is the source of truth for which paths the scaffold owns and how each is
+[`manifest.yaml`](../manifest.yaml) is the source of truth for which paths the scaffold owns and how each is
 handled. Each entry has one of three classes:
 
 - **managed** — the scaffold owns the file. Push overwrites it in the client; pull copies it back from the
-  client into the scaffold.
+  client into the scaffold. A managed file may be listed directly, or it may be discovered under a
+  `managed-dirs` directory. Managed directories recurse through their files, excluding paths declared as stubs.
 - **stub** — the client owns the file after first seeding. Push writes it only when the file is absent in
-  the client; pull never reads it. A stub may declare `source = "<path>"`, identifying the scaffold template
-  copied to the client path; when absent, the scaffold source path matches the client path. A stub may
-  declare `indexes = "<dir>/"`, identifying a directory the stub summarizes — push prints a notice when new
-  managed files appear directly in that directory so the maintainer can update the index by hand.
+  the client; pull never reads it. A stub may set `source` to the scaffold template copied to the client
+  path; when absent, the scaffold source path matches the client path. A stub may set `indexes` to a directory
+  the stub summarizes — push prints a notice when new managed files appear directly in that directory so the
+  maintainer can update the index by hand.
 - **symlink** — push creates or replaces the named path as a symbolic link to the given target.
 
 ## `tools/scaffold-sync.py`
@@ -30,7 +31,7 @@ Run from the scaffold. Copies the scaffold's managed payload into the client pro
 
 Preconditions:
 
-- The scaffold has no uncommitted changes in any client payload source: [`manifest.toml`](../manifest.toml),
+- The scaffold has no uncommitted changes in any client payload source: [`manifest.yaml`](../manifest.yaml),
   [`tools/scaffold-sync.py`](../tools/scaffold-sync.py), every managed file, and every stub source file.
 - The client has no uncommitted changes in any managed path, in any path declared as a symlink, in
   `.agentic-scaffold-revision`, or in `.gitignore`.
@@ -109,8 +110,8 @@ content outside the markers is untouched.
 ## Out of scope
 
 - **No upstreaming of new files from a client.** Pull is bounded by the manifest. To add a new file to the
-  scaffold, add it in the scaffold repo, list it in [`manifest.toml`](../manifest.toml), and rely on the next
-  push to deliver it.
+  scaffold, add it in the scaffold repo under a managed directory or list it in
+  [`manifest.yaml`](../manifest.yaml), and rely on the next push to deliver it.
 - **No automatic merges.** Pull produces an incoming branch the maintainer merges by hand, resolving
   conflicts the normal way.
 - **No version tags.** Each client tracks the scaffold's `HEAD` SHA in `.agentic-scaffold-revision`;

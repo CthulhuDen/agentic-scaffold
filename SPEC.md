@@ -16,7 +16,7 @@ independent git repositories; the sync system moves files between them on demand
 | `tools/scaffold-sync.py` | Bidirectional sync between scaffold and client (scaffold-only)                                |
 | `tools/scaffold.sh`      | Client-side wrapper that invokes `scaffold-sync.py` in the scaffold                           |
 | `tools/sync-agents.py`   | Regenerates Codex/OpenCode agent files from `.claude/agents/`                                 |
-| `manifest.toml`          | Classification of every path the scaffold manages                                             |
+| `manifest.yaml`          | Classification of every path the scaffold manages                                             |
 | `specs/`                 | Per-component specs                                                                           |
 
 ## Tools convention

@@ -1,0 +1,37 @@
+# Files the agentic-scaffold installer manages.
+#
+# managed-dirs: directories whose files the installer owns recursively, except paths
+#               listed as stubs.
+# managed:      individual paths the installer owns outside managed directories.
+# stub:         paths the project owns once seeded - written on first push only
+#               when absent in the client and never pulled. Optional source names
+#               a scaffold template to copy instead of the destination path.
+#               Optional indexes names a directory this stub summarizes; push
+#               emits a notice when new managed files appear there.
+# symlink:      created on push pointing at the given target.
+
+managed-dirs:
+  - .agents/
+  - .claude/agents/
+  - policy/
+
+managed:
+  - .codex/hooks.json
+  - .codex/session-start.sh
+  - .opencode/plugin/sync-agents-check.ts
+  - tools/scaffold.sh
+  - tools/sync-agents.py
+
+stub:
+  - path: AGENTS.md
+  - path: SPEC.md
+    source: templates/SPEC.md
+  - path: policy/README.md
+    indexes: policy/
+  - path: policy/verification-gates.md
+
+symlink:
+  - path: CLAUDE.md
+    target: AGENTS.md
+  - path: .claude/skills
+    target: ../.agents/skills
