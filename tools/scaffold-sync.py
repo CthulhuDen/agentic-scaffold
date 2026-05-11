@@ -10,7 +10,8 @@
 Subcommands:
     push <client>  Write managed files into <client>; seed stubs only if absent;
                    install the scaffold .gitignore block; stamp
-                   <client>/.agentic-scaffold-revision with the scaffold's HEAD SHA.
+                   <client>/.agentic-scaffold-revision with the scaffold's HEAD SHA;
+                   remember this scaffold's absolute path under <client>/.tmp/.
     pull <client>  Check out an incoming/<client>-<ts> branch in this scaffold
                    from the revision recorded in <client>/.agentic-scaffold-revision;
                    copy the client's managed files onto it; commit. The
@@ -54,6 +55,7 @@ __pycache__/
 """
 
 REVISION_FILE = ".agentic-scaffold-revision"
+LAST_SCAFFOLD_PATH_FILE = ".tmp/agentic-scaffold-path"
 MANIFEST_FILE = "manifest.yaml"
 
 
@@ -308,6 +310,12 @@ def install_gitignore_block(client_root: Path) -> None:
         gitignore.write_text(new, encoding="utf-8")
 
 
+def write_last_scaffold_path(scaffold_root: Path, client_root: Path) -> None:
+    pointer = client_root / LAST_SCAFFOLD_PATH_FILE
+    pointer.parent.mkdir(parents=True, exist_ok=True)
+    pointer.write_text(str(scaffold_root.resolve()) + "\n", encoding="utf-8")
+
+
 def push(scaffold_root: Path, client_root: Path) -> None:
     files, symlinks = load_manifest(scaffold_root)
     managed_paths = [f.path for f in files if f.cls == "managed"]
@@ -368,6 +376,7 @@ def push(scaffold_root: Path, client_root: Path) -> None:
         dst.symlink_to(s.target)
 
     rev_path.write_text(scaffold_sha + "\n", encoding="utf-8")
+    write_last_scaffold_path(scaffold_root, client_root)
     install_gitignore_block(client_root)
 
     for f in files:

@@ -46,9 +46,10 @@ Steps:
 2. Copies each managed file from the scaffold into the client, overwriting unconditionally. Each stub source
    is copied only when the client path is absent. Each symlink is created or replaced.
 3. Writes the scaffold's current `HEAD` SHA into the client's `.agentic-scaffold-revision`.
-4. Installs or refreshes the scaffold-owned block in the client's `.gitignore` (see
+4. Writes the scaffold repository's absolute path into the client's `.tmp/agentic-scaffold-path`.
+5. Installs or refreshes the scaffold-owned block in the client's `.gitignore` (see
    [Gitignore block](#gitignore-block)).
-5. For each stub with `indexes`, prints a notice listing newly-created managed files under that prefix.
+6. For each stub with `indexes`, prints a notice listing newly-created managed files under that prefix.
 
 ### `pull <client>`
 
@@ -84,12 +85,13 @@ If any step after branch creation fails, pull restores the previous branch and d
 
 Client-side wrapper that drives `scaffold-sync.py` from inside the client project.
 
-- `tools/scaffold.sh push <scaffold-path>` — upstream this project's edits to the scaffold.
-- `tools/scaffold.sh pull <scaffold-path>` — bring scaffold updates into this project.
+- `tools/scaffold.sh push [<scaffold-path>]` — upstream this project's edits to the scaffold.
+- `tools/scaffold.sh pull [<scaffold-path>]` — bring scaffold updates into this project.
 
 The wrapper resolves the client's git toplevel via `git rev-parse --show-toplevel`, `cd`s into
-`<scaffold-path>`, and execs `scaffold-sync.py <inverse-action> <client-toplevel>` there: a
-`tools/scaffold.sh push` invokes `scaffold-sync.py pull`, and `tools/scaffold.sh pull` invokes
+`<scaffold-path>`, and execs `scaffold-sync.py <inverse-action> <client-toplevel>` there. When
+`<scaffold-path>` is omitted, the wrapper reads the scaffold path from `.tmp/agentic-scaffold-path` in the
+client. A `tools/scaffold.sh push` invokes `scaffold-sync.py pull`, and `tools/scaffold.sh pull` invokes
 `scaffold-sync.py push`.
 
 ## Revision tracking
@@ -99,6 +101,12 @@ were last reconciled against. Push updates it to the scaffold's `HEAD`; pull upd
 freshly-created incoming branch. The recorded SHA is the merge base for this client's next push and pull.
 When two clients diverge from a shared scaffold commit and both upstream their edits, the maintainer
 resolves a 3-way merge between two incoming branches in the scaffold repository.
+
+## Scaffold path cache
+
+`.tmp/agentic-scaffold-path` in the client records the absolute path of the scaffold repository that last pushed
+into that client. `tools/scaffold.sh` uses the path as its default scaffold repository when no explicit
+`<scaffold-path>` argument is provided.
 
 ## Gitignore block
 
