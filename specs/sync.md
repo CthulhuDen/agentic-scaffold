@@ -31,8 +31,8 @@ Run from the scaffold. Copies the scaffold's managed payload into the client pro
 
 Preconditions:
 
-- The scaffold has no uncommitted changes in any client payload source: [`manifest.yaml`](../manifest.yaml),
-  [`tools/scaffold-sync.py`](../tools/scaffold-sync.py), every managed file, and every stub source file.
+- The scaffold has no uncommitted changes in [`manifest.yaml`](../manifest.yaml), any file the manifest
+  references as a managed file or stub source, or [`tools/scaffold-sync.py`](../tools/scaffold-sync.py).
 - The client has no uncommitted changes in any managed path, in any path declared as a symlink, in
   `.agentic-scaffold-revision`, or in `.gitignore`.
 - No path declared as a symlink in the manifest exists in the client as a regular file or directory; push
@@ -62,9 +62,10 @@ Preconditions:
 - The client has no uncommitted changes in `.agentic-scaffold-revision`.
 - The client's `.agentic-scaffold-revision` names a commit reachable in the scaffold's history.
 
-Pull checks the whole scaffold worktree after copying client managed files to decide whether the incoming
-branch has changes to commit. A dirty non-managed scaffold path is part of that check, so the scaffold
-worktree must be clean before relying on pull's no-change result.
+Pull detects no-change by running `git status --porcelain` on the whole scaffold worktree, not just the managed
+paths, so a dirty non-managed path defeats the check and pull proceeds as if managed files had changed.
+Uncommitted changes in non-managed scaffold paths never enter the incoming commit — Step 4 stages only the
+managed paths — but they will keep pull from short-circuiting on an unchanged client.
 
 Steps:
 
@@ -73,7 +74,7 @@ Steps:
    with a warning.
 3. If nothing changed, deletes the incoming branch, restores the previous branch, and exits without
    committing.
-4. Otherwise stages the managed paths and commits with message
+4. Otherwise stages only the managed paths and commits with message
    `incoming from <client-name> @ <client-sha>`.
 5. Writes the new branch-tip SHA into the client's `.agentic-scaffold-revision`, advancing the recorded
    merge base for the next push to this client.

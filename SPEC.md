@@ -17,6 +17,7 @@ independent git repositories; the sync system moves files between them on demand
 | `tools/scaffold.sh`      | Client-side wrapper that invokes `scaffold-sync.py` in the scaffold                           |
 | `tools/sync-agents.py`   | Regenerates Codex/OpenCode agent files from `.claude/agents/`                                 |
 | `manifest.yaml`          | Classification of every path the scaffold manages                                             |
+| `templates/`             | Stub-source bodies seeded into the client when a stub declares a `source` path                |
 | `specs/`                 | Per-component specs                                                                           |
 
 ## Tools convention
@@ -42,9 +43,8 @@ The scaffold has three concerns, each documented in its own component spec:
   skills and subagent definitions agents invoke. Documented in [`specs/agents.md`](specs/agents.md); the
   rule documents themselves live in [`AGENTS.md`](AGENTS.md) and under [`.agents/`](.agents).
 
-The scaffold seeds [`AGENTS.md`](AGENTS.md), [`SPEC.md`](SPEC.md),
-[`policy/README.md`](policy/README.md), and
-[`policy/verification-gates.md`](policy/verification-gates.md) once on first install and never overwrites
-them. A client project authors that seeded file and any component specs under [`specs/`](specs) from that seed.
-Everything else under `.agents/`, `.claude/agents/`, `.codex/`, `.opencode/`, `policy/`, and `tools/` is
-managed by the scaffold, except `tools/scaffold-sync.py`, which lives only in the scaffold.
+The scaffold seeds [`AGENTS.md`](AGENTS.md), [`SPEC.md`](SPEC.md), [`policy/README.md`](policy/README.md), and
+[`policy/verification-gates.md`](policy/verification-gates.md) once on first install and never overwrites them.
+A client project authors that seeded file and any component specs under [`specs/`](specs) from that seed.
+Everything else under `.agents/`, `.claude/agents/`, `.codex/`, `.opencode/`, `policy/`, and `tools/` is managed
+by the scaffold, except `tools/scaffold-sync.py`, which lives only in the scaffold.
