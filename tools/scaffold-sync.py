@@ -50,6 +50,7 @@ __pycache__/
 /.codex/*
 !/.codex/hooks.json
 !/.codex/session-start.sh
+!/.codex/environments/
 # >>> agentic-scaffold end <<<
 """
 

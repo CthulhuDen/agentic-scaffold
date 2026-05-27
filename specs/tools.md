@@ -23,3 +23,19 @@ CLI flags: `--check` (exit 1 if any output would change; no writes), `--dry-run`
 
 Each harness has a SessionStart hook that runs `tools/sync-agents.py --check` and halts the session when any
 output would change.
+
+## `tools/setup-git-hooks.py`
+
+Wires the repository's git hooks and the Codex shim that fires them. Run from inside the project; discovers the
+main checkout via `git rev-parse --git-common-dir`. Two steps:
+
+- **post-checkout hook** — symlinks the git `hooks/post-checkout` path to the checked-in `.githooks/post-checkout`
+  in the main checkout. Reports when the link is already correct; refuses an existing non-matching hook unless
+  `--force` is given.
+- **Codex environment** — seeds `.codex/environments/environment.toml`, naming the environment after the main
+  checkout directory and wiring a `[setup]` script that invokes the post-checkout hook. Codex provisions a
+  workspace without firing git hooks, so the agent-file regeneration post-checkout drives never runs there. The
+  file is seeded only when absent; the project owns and tracks it thereafter.
+
+CLI flags: `--dry-run` (print both operations without changing files) and `--force` (replace an existing
+post-checkout hook).
