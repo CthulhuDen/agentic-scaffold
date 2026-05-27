@@ -407,6 +407,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                    help="exit 1 if any output would change; no writes, no prompt")
     g.add_argument("--dry-run", action="store_true",
                    help="print intended diff to stdout and exit 0")
+    g.add_argument("--yes", action="store_true",
+                   help="write intended outputs without prompting")
     p.add_argument("--opencode", action="store_true",
                    help="include opencode targets (default: all if no target flags set)")
     p.add_argument("--codex", action="store_true",
@@ -447,6 +449,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if args.dry_run:
         sys.stdout.write(diff)
+        return 0
+    if args.yes:
+        write_outputs(outputs)
+        print(f"wrote {len(outputs)} file(s)", file=sys.stderr)
         return 0
 
     sys.stderr.write(diff)

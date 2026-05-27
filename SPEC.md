@@ -7,7 +7,7 @@ independent git repositories; the sync system moves files between them on demand
 ## Repository layout
 
 | Path                     | Role                                                                                          |
-|--------------------------|-----------------------------------------------------------------------------------------------|
+| ------------------------ | --------------------------------------------------------------------------------------------- |
 | `AGENTS.md`              | Entry-point system prompt read by every harness on session start (`CLAUDE.md` symlinks to it) |
 | `.agents/`               | Shared agent instructions (conduct, implementer responsibilities, skills)                     |
 | `.claude/agents/*.md`    | Canonical subagent prompts                                                                    |

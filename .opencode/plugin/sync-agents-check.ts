@@ -7,6 +7,7 @@
 
 import { execFile } from "node:child_process"
 import { platform } from "node:os"
+import { dirname, join } from "node:path"
 import { execPath } from "node:process"
 import { promisify } from "node:util"
 
@@ -40,7 +41,16 @@ export const SyncAgentsCheck: Plugin = async ({ client, directory }) => {
 
 async function runCheck(client: Client, cwd: string): Promise<void> {
   try {
-    await exec("tools/sync-agents.py", ["--check", "--opencode"], { cwd })
+    const cacheDir = await uvCacheDir(cwd)
+    await exec("uv", [
+      "run",
+      "--cache-dir",
+      cacheDir,
+      "--script",
+      "tools/sync-agents.py",
+      "--check",
+      "--opencode",
+    ], { cwd })
     return
   } catch {
     // Non-zero exit (or spawn failure) — treat as "needs the user's attention" and surface.
@@ -49,6 +59,11 @@ async function runCheck(client: Client, cwd: string): Promise<void> {
   await showToast(client, cwd)
   if (IS_DESKTOP_SIDECAR) await showMacNotification()
   console.error(`[sync-agents-check] ${TITLE}: ${MESSAGE}`)
+}
+
+async function uvCacheDir(cwd: string): Promise<string> {
+  const { stdout } = await exec("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd })
+  return join(dirname(stdout.trim()), ".tmp", "uv-cache")
 }
 
 async function showToast(client: Client, directory: string): Promise<void> {

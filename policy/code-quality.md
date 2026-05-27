@@ -24,6 +24,11 @@ Code is free of errors and warnings reported by the project's IDE inspections.
   redundant: link once, then let the code speak.
 - **No dead code.** Unused symbols, parameters, and commented-out blocks are removed. Version control preserves
   history.
+- **State-machine defaults are explicit.** Enum-like values that drive control flow have a deliberate zero value:
+  either a named zero state (`…None`, `…Unknown`) the code accounts for, or no state at zero at all (`iota + 1`).
+  Functions returning decision structs set the state field on every control-flow return; callers never rely on an
+  all-zero struct to mean success, continue, or handled. Switches over such states handle the named expected states
+  explicitly, so reordering or removing a constant cannot silently re-map one onto the zero value.
 - **Constants, not magic values.** Non-obvious literals (timeouts, buffer sizes, sentinels) are named.
 - **No premature abstraction.** An abstraction is introduced only when a concrete duplication has emerged and
   its shape is clear.

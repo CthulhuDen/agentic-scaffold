@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+# Git passes $3 = 1 for branch/HEAD checkouts, 0 for file checkouts.
+# Only run on branch/HEAD switches — file checkouts are too frequent to justify a sync sweep on each one.
+[ "${3:-0}" = "1" ] || exit 0
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+common_git_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
+cache_dir="$(dirname "$common_git_dir")/.tmp/uv-cache"
+
+cd "$repo_root" || exit 0
+if [ ! -d .claude/agents ]; then
+  exit 0
+fi
+
+mkdir -p "$cache_dir" || exit 0
+if ! uv run --cache-dir "$cache_dir" --script tools/sync-agents.py --yes >/dev/null; then
+  echo "warning: failed to sync generated agent files; run tools/sync-agents.py" >&2
+fi

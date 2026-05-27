@@ -1,67 +1,66 @@
 ---
 name: roadmap
 description: >-
-  Rules for creating, maintaining, and executing iterations in `ROADMAP.md`. Load whenever you create, read, or edit
-  `ROADMAP.md`, when you start work on a roadmap iteration, or before invoking the `roadmap-item` skill.
+  ALWAYS invoke this skill when user asks to create a roadmap or to start or continue working on a roadmap; or before
+  invoking the `roadmap-item` skill. NEVER create/edit/follow the `ROADMAP.md` without first invoking this skill.
 ---
 
 # Working with ROADMAP.md
 
 ## When to use a roadmap
 
-`ROADMAP.md` is reserved for large, multi-step projects (e.g. initial template adaptation, major feature
-additions) that benefit from explicit iteration planning. It may not always be present in the repository. Simple,
-self-contained changes — a CI tweak, a config update, a bug fix — do not need a roadmap entry; a git commit message
-is sufficient. When a roadmap exists for the current effort, consult it before starting work and never jump ahead
-or work on multiple iterations simultaneously.
+`ROADMAP.md` plans large, multi-step efforts as numbered iterations; simple, self-contained changes don't need
+one, and a roadmap may not be present in the repository at all. When a roadmap exists, consult it before starting
+work, do not jump ahead, and work on at most one iteration at a time.
 
 ## Iteration shape
 
-Each iteration has: a number, a title, a status (`pending` / `in-progress` / `done`), SPEC section references,
-a scope description, and acceptance criteria. Completed iterations may also carry optional `### Plan adjustments`
-and `### Follow-ups` subsections.
+Each iteration carries a number, a title, a status (`pending` / `in-progress` / `done`), SPEC section references,
+`### Scope`, and `### Acceptance`. Optional `### Plan adjustments` and `### Follow-ups` subsections are populated
+as work progresses and freeze with the rest when the iteration is marked `done`.
 
-Each iteration must be independently verifiable. An iteration should leave the project in a buildable, testable
-state. Do not introduce changes that depend on incomplete future iterations.
+Each iteration must be independently verifiable and must leave the project buildable and testable. Do not
+introduce changes that depend on incomplete future iterations.
 
-## Status updates
+## Status flow
 
-Mark iterations as `done` immediately upon completion — do not batch status updates. The status flip is the final
-edit of an iteration's work; everything else (including any Plan adjustments and Follow-ups subsections) must be
-in place first, so an aborted run does not leave behind a misleading `done`.
+`pending` → `in-progress` → `done`. The implementer makes both flips:
 
-## Editing scope and acceptance
+- `pending` → `in-progress` as the first edit when work starts (a no-op on a resumed run).
+- `in-progress` → `done` as the final edit, after Plan adjustments, Follow-ups, downstream-reference sweeps,
+  and every other change are in place — an aborted run must not leave a misleading `done` behind.
 
-Do not edit the `### Scope` or `### Acceptance` of an iteration once work on it has begun. Those sections preserve
-the plan as it was authored and are read in retrospect to understand what was intended. When implementation reveals
-that the plan needs adjusting, do not rewrite history — record the change instead:
+## What the implementer may edit
 
-- **Adjustments to the current step.** Append a `### Plan adjustments` subsection to the current iteration. Each
-  entry names what changed relative to the original scope/acceptance and why (e.g. an artifact rename forced by
-  upstream tooling, a step that turned out to be redundant, a smaller substitute chosen for a planned deliverable).
-  The original scope and acceptance text stay intact.
-- **Adjustments that affect future steps.** Future iterations are still in the planning state, so edit their
-  `### Scope` / `### Acceptance` directly. Also record the cross-cutting change under the current step's
-  `### Plan adjustments` so the trail is visible from where it was discovered.
+Once an iteration is `in-progress`:
 
-Concerns surfaced during a step that did not change its outcome — a risk to re-check during a later iteration, an
-open question about behavior that worked but might shift, follow-up work explicitly deferred — go under a
-`### Follow-ups` subsection on the current iteration. Follow-ups are pointers, not unfinished business; the
-acceptance criteria still need to be met before the iteration is marked `done`.
+- **Current iteration's `### Scope` / `### Acceptance`:** frozen — preserve the plan as authored. When
+  implementation reveals a needed adjustment, append a `### Plan adjustments` entry naming what changed and why.
+- **Current iteration's `### Plan adjustments` / `### Follow-ups`:** working records — add, revise, or remove
+  entries as implementation evolves. If a later step or review finding contradicts an earlier entry, update or
+  delete that entry rather than refusing the fix.
+- **Future iterations' `### Scope` / `### Acceptance`:** edit directly — they are still in planning. Note any
+  cross-cutting change under the current iteration's `### Plan adjustments` so the trail is visible from where
+  it was discovered.
+- **Completed (`done`) iterations:** frozen entirely — do not edit or reorder them.
 
-## Iteration ordering
+Follow-ups are pointers, not unfinished business — acceptance criteria still need to be met before `done`.
 
-Do not reorder completed iterations. New iterations may be inserted if scope is discovered during implementation.
+## Downstream references
+
+Before marking the iteration `done`, sweep later iterations for references the current work invalidated
+(shifted SPEC section numbers, renamed artifacts, moved files) and update them in place. Purely mechanical
+reference updates do not need a `### Plan adjustments` entry.
 
 ## Lifecycle
 
-When all iterations are complete, delete `ROADMAP.md` from the repository. A roadmap is a living planning document,
-not an archive. Historical context is preserved in git history.
+When all iterations are `done`, delete `ROADMAP.md` from the repository in a standalone commit — separate
+from the commit that closes the last iteration, so that the closing commit records the last iteration's
+final Plan adjustments and Follow-ups with the file still in place.
 
 ## Cross-references
 
-Never reference `ROADMAP.md` (or specific iterations within it) from source code, KDoc, JavaDoc, inline comments,
-or [`SPEC.md`](../../../SPEC.md). The roadmap is not a permanent member of the codebase — it is deleted once its
-iterations are complete, which would leave dangling references behind. Code comments must be self-contained: explain
-the constraint or decision in place rather than pointing at the planning document that authored it. If a rationale
-is important enough to preserve long-term, it belongs in [`SPEC.md`](../../../SPEC.md).
+Never reference `ROADMAP.md` (or specific iterations within it) from source code or its comments, or
+[`SPEC.md`](../../../SPEC.md) / [`specs/`](../../../specs). The roadmap is deleted once its iterations are complete,
+which would leave dangling references behind. Rationale important enough to preserve long-term belongs in the
+specifications.

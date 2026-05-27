@@ -16,11 +16,14 @@ managed-dirs:
   - policy/
 
 managed:
+  - .githooks/post-checkout
   - .codex/hooks.json
   - .codex/session-start.sh
   - .opencode/plugin/sync-agents-check.ts
   - tools/scaffold.sh
   - tools/sync-agents.py
+  - tools/markdown.sh
+  - tools/setup-git-hooks.py
 
 stub:
   - path: AGENTS.md

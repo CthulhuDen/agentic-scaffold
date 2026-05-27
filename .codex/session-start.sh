@@ -10,9 +10,13 @@
 set -uo pipefail
 
 repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-cd "$repo_root" || exit 0
+common_git_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
+cache_dir="$(dirname "$common_git_dir")/.tmp/uv-cache"
 
-if tools/sync-agents.py --check >/dev/null 2>&1; then
+cd "$repo_root" || exit 0
+mkdir -p "$cache_dir" || exit 0
+
+if uv run --cache-dir "$cache_dir" --script tools/sync-agents.py --check >/dev/null 2>&1; then
   exit 0
 fi
 
