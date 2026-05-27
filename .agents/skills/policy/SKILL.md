@@ -3,7 +3,8 @@ name: policy
 description: >-
   ALWAYS invoke this skill before doing any work in the project, including answering the user's question; writing,
   editing, reading, debugging or reviewing any code or documentation; researching code structure or behaviour;
-  planning implementation of a new feature. NEVER go straight to the code without first invoking this skill.
+  planning implementation of a new feature; running any subagent. NEVER go straight to the code without first
+  invoking this skill.
 ---
 
 ## Read SPEC.md and policy/README.md before doing any work.

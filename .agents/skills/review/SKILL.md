@@ -1,10 +1,11 @@
 ---
 name: review
 description: >-
-  ALWAYS invoke this skill before every git commit; when the user asks to run the reviewer subagent for a one-off
-  review (e.g. "run the reviewer") or when the user asks to run the review loop. NEVER commit any changes before
-  invoking this skill. Do not invoke this skill for a simple review request without mentioning the loop or the
-  reviewer subagent, unless the user also asked to commit. NEVER invoke this skill if you are the reviewer subagent.
+  ALWAYS invoke this skill before every git commit — including when the user asks you to commit or amend; when the
+  user asks to run the reviewer subagent for a one-off review (e.g. "run the reviewer") or when the user asks to
+  run the review loop. NEVER commit any changes before invoking this skill. Do not invoke this skill for a simple
+  review request without mentioning the loop or the reviewer subagent, unless the user also asked to commit. NEVER
+  invoke this skill if you are the reviewer subagent.
 ---
 
 <SUBAGENT-STOP>

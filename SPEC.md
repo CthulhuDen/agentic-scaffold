@@ -9,7 +9,7 @@ independent git repositories; the sync system moves files between them on demand
 | Path                     | Role                                                                                          |
 | ------------------------ | --------------------------------------------------------------------------------------------- |
 | `AGENTS.md`              | Entry-point system prompt read by every harness on session start (`CLAUDE.md` symlinks to it) |
-| `.agents/`               | Shared agent instructions (conduct, implementer responsibilities, skills)                     |
+| `.agents/`               | Shared agent skills, one `SKILL.md` per directory                                             |
 | `.claude/agents/*.md`    | Canonical subagent prompts                                                                    |
 | `.codex/`, `.opencode/`  | Per-harness wiring; `agents/` is regenerated from `.claude/agents/`                           |
 | `policy/`                | Governance rules consulted before writing code or docs                                        |

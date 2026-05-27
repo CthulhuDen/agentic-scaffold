@@ -1,20 +1,25 @@
 # Agents
 
 The agent layer is the set of system prompts every supported harness reads on session start, plus the
-on-demand skills and subagent definitions that the primary agent invokes during a session.
+on-demand skills and subagent definitions that agents invoke during a session.
 
 ## Entry point
 
-[`AGENTS.md`](../AGENTS.md) is the project-root entry point every harness reads on session start. It points
-at [`.agents/conduct.md`](../.agents/conduct.md) — universal obligations binding for the entire session —
-and [`.agents/implementer.md`](../.agents/implementer.md) — additional obligations for any agent that writes
-or edits files. Both files address the agent in the second person.
+[`AGENTS.md`](../AGENTS.md) is the project-root entry point every harness reads on session start, addressed to
+the agent in the second person. It carries a minimal set of standing rules — editing files only on explicit
+request and the spec-driven workflow — and defers the universal per-run obligations to the [skills](#skills)
+below.
 
 ## Skills
 
-Discrete bodies of knowledge that apply only to specific tasks are packaged as skills under
-[`.agents/skills/`](../.agents/skills) (each a directory containing a `SKILL.md`). A skill is loaded on
-demand when the agent recognizes a task that matches its trigger.
+Skills are discrete bodies of knowledge packaged under [`.agents/skills/`](../.agents/skills) — each a directory
+containing a `SKILL.md` — loaded on demand when an agent recognizes a task that matches the skill's trigger. The
+mechanism is available to every agent: the primary agent and each subagent invoke skills the same way. Claude
+Code reads them from [`.claude/skills`](../.claude/skills), a symlink to this directory.
+
+The repository's universal agent obligations are themselves encoded as skills with broad triggers — doing any
+work, editing code or documentation, running a subagent, or committing — so every agent loads them before the
+work they govern.
 
 ## Subagent definitions
 
@@ -27,9 +32,8 @@ permission, and sandbox details vary per harness.
 
 ## Ownership
 
-The scaffold owns [`.agents/conduct.md`](../.agents/conduct.md),
-[`.agents/implementer.md`](../.agents/implementer.md), every `.agents/skills/**/SKILL.md`, and every
-`.claude/agents/*.md`. Push overwrites them on every sync.
+The scaffold owns every `.agents/skills/**/SKILL.md` and every `.claude/agents/*.md`. Push overwrites them on
+every sync.
 
 The client owns [`AGENTS.md`](../AGENTS.md); the scaffold seeds it as a stub on first install and never
 overwrites it.
