@@ -13,6 +13,8 @@ Subcommands:
                    <client>/.agentic-scaffold-revision with the scaffold's HEAD SHA;
                    remember this scaffold's absolute path under <client>/.tmp/.
     pull <client>  Apply the client's managed-file edits according to specs/sync.md.
+                   With --no-commit, copy managed files into the working tree and stop,
+                   leaving an uncommitted result for the maintainer to curate by hand.
 
 See specs/sync.md for preconditions. Review the result with `git diff` (push)
 or `git log` (pull).
@@ -496,10 +498,16 @@ def pull_directly_to_main(
     print(f"recorded {new_sha[:12]} in {REVISION_FILE} on the client side")
 
 
-def pull(scaffold_root: Path, client_root: Path) -> None:
+def pull(scaffold_root: Path, client_root: Path, *, no_commit: bool = False) -> None:
     files, _ = load_manifest(scaffold_root)
     managed_paths = [f.path for f in files if f.cls == "managed"]
     require_clean(scaffold_root, managed_paths, "scaffold")
+
+    if no_commit:
+        copy_managed_files(files, scaffold_root, client_root)
+        print(f"copied managed files from {client_root.name} into the working tree; not committed")
+        return
+
     require_clean(client_root, [REVISION_FILE], "client")
 
     rev_path = client_root / REVISION_FILE
@@ -574,6 +582,12 @@ def main(argv: list[str] | None = None) -> int:
     for name in ("push", "pull"):
         sp = sub.add_parser(name)
         sp.add_argument("client", help="path to the client project root")
+        if name == "pull":
+            sp.add_argument(
+                "--no-commit",
+                action="store_true",
+                help="copy managed files into the working tree without committing",
+            )
     args = parser.parse_args(argv)
 
     scaffold_root = find_scaffold_root()
@@ -585,7 +599,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "push":
         push(scaffold_root, client_root)
     else:
-        pull(scaffold_root, client_root)
+        pull(scaffold_root, client_root, no_commit=args.no_commit)
     return 0
 
 

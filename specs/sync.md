@@ -103,6 +103,16 @@ Incoming-branch path:
 
 If any step after branch creation fails, pull restores the previous branch and deletes the incoming branch.
 
+No-commit path (`--no-commit`):
+
+1. Copies each managed file from the client onto the current branch. Files missing in the client are skipped
+   with a warning.
+2. Stops without checking the recorded revision, fast-forwarding, branching, committing, or writing the client's
+   `.agentic-scaffold-revision`.
+
+Of the preconditions above, only clean managed paths in the scaffold are required. This path serves a pull large
+enough that no single committed result is coherent: the maintainer curates the working tree and commits by hand.
+
 ## `tools/scaffold.sh`
 
 Client-side wrapper that drives `scaffold-sync.py` from inside the client project.
