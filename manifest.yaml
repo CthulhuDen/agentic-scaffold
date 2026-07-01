@@ -32,6 +32,8 @@ stub:
   - path: policy/README.md
     indexes: policy/
   - path: policy/verification-gates.md
+  - path: .agents/skills/policy/project.md
+  - path: .agents/skills/policy-editor/project.md
 
 symlink:
   - path: CLAUDE.md

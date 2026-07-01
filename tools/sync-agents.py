@@ -34,16 +34,9 @@ SUPPORTED_FIELDS = frozenset({"name", "description", "tools", "disallowedTools",
 
 ALL_TARGETS = frozenset({"opencode", "codex"})
 
-# CC `effort` enum (low/medium/high/xhigh/max) → codex `model_reasoning_effort`
-# (none/minimal/low/medium/high/xhigh). CC `max` collapses to codex `xhigh` — codex's ceiling.
-EFFORT_MAP: dict[str, str] = {
-    "low": "low",
-    "medium": "medium",
-    "high": "high",
-    "xhigh": "xhigh",
-    "max": "xhigh",
-}
-ALLOWED_EFFORTS = frozenset(EFFORT_MAP.keys())
+# CC `effort` enum. Parse-time validity check only; which (model, effort) pairs the codex
+# translation supports is governed by SUPPORTED_PAIRS.
+ALLOWED_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 
 TOOL_MAP: dict[str, str] = {
     "Read": "read",
@@ -68,16 +61,22 @@ EDIT_CLASS = frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"})
 class ModelTranslation:
     codex_model: str | None
     codex_effort: str | None
-    codex_comment: str | None = None
 
 
-# Hardcoded model alias table. Verified against upstream docs on 2026-05-10.
-# Update when Anthropic / OpenAI ship new flagship models.
-MODEL_TABLE: dict[str, ModelTranslation] = {
-    "opus":    ModelTranslation("gpt-5.5", "high"),
-    "sonnet":  ModelTranslation("gpt-5.5", "medium"),
-    "haiku":   ModelTranslation("gpt-5.5", "low"),
-    "inherit": ModelTranslation(None, None),
+# Complete table of supported CC (model, effort) pairs → codex (model, model_reasoning_effort).
+# Effort is translated jointly with the model because the aliases denote capability tiers, not
+# just models: Fable sits a tier above Opus, so fable-at-X equals opus-at-one-rung-above-X on
+# the same OpenAI model. Any pair not listed is unsupported and rejected. (None, None) means
+# both frontmatter fields are absent (or `model: inherit` with no effort): nothing is emitted
+# and codex inherits its parent defaults.
+# Verified against upstream docs on 2026-06-11. Update when Anthropic / OpenAI ship new
+# flagship models.
+SUPPORTED_PAIRS: dict[tuple[str | None, str | None], ModelTranslation] = {
+    (None, None):        ModelTranslation(None, None),
+    ("opus", "high"):    ModelTranslation("gpt-5.5", "high"),
+    ("opus", "xhigh"):   ModelTranslation("gpt-5.5", "xhigh"),
+    ("fable", "medium"): ModelTranslation("gpt-5.5", "high"),
+    ("fable", "high"):   ModelTranslation("gpt-5.5", "xhigh"),
 }
 
 
@@ -178,21 +177,14 @@ def compute_denied(cc: CCSubagent) -> set[str]:
 
 
 def translate_model(cc: CCSubagent) -> ModelTranslation:
-    if cc.model is None:
-        return MODEL_TABLE["inherit"]
-    m = cc.model.strip()
-    if m in MODEL_TABLE:
-        return MODEL_TABLE[m]
-    if m.startswith("claude-"):
-        return ModelTranslation(
-            codex_model="gpt-5.5",
-            codex_effort="medium",
-            codex_comment=(
-                f"NOTE: CC model {m!r} is Anthropic-specific; codex falls back to "
-                "gpt-5.5 with medium reasoning effort."
-            ),
-        )
-    die(f"{cc.path}: unknown model alias {m!r}")
+    model = cc.model.strip() if cc.model is not None else None
+    if model == "inherit":
+        model = None
+    key = (model, cc.effort)
+    if key not in SUPPORTED_PAIRS:
+        supported = ", ".join(f"{m or '<unset>'}+{e or '<unset>'}" for m, e in SUPPORTED_PAIRS)
+        die(f"{cc.path}: unsupported model+effort pair {key[0]!r}+{key[1]!r} (supported: {supported})")
+    return SUPPORTED_PAIRS[key]
 
 
 # ---------- opencode emission ----------
@@ -268,15 +260,9 @@ def render_codex_agent(cc: CCSubagent) -> str:
     out.append(f"description = {_toml_string(cc.description)}")
     mt = translate_model(cc)
     if mt.codex_model is not None:
-        if mt.codex_comment:
-            out.append(f"# {mt.codex_comment}")
         out.append(f'model = "{mt.codex_model}"')
-    # Effort: explicit cc.effort overrides the model-alias-derived default. Emitted
-    # independently of `model` so that `effort: xhigh` works even when CC `model` is
-    # absent/`inherit` (codex applies the override to the inherited parent model).
-    final_effort = EFFORT_MAP[cc.effort] if cc.effort is not None else mt.codex_effort
-    if final_effort is not None:
-        out.append(f'model_reasoning_effort = "{final_effort}"')
+    if mt.codex_effort is not None:
+        out.append(f'model_reasoning_effort = "{mt.codex_effort}"')
     sandbox_line = _infer_codex_sandbox(cc)
     if sandbox_line:
         out.append(sandbox_line)

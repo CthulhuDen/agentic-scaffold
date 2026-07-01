@@ -9,10 +9,11 @@ Documentation is free of errors and warnings reported by the project's IDE inspe
 
 ## Agent-instruction documents
 
-[`AGENTS.md`](../AGENTS.md), `.agents/skills/**/SKILL.md`, and `.claude/agents/*.md` are system prompts whose primary
-purpose is to steer LLM behavior. That purpose overrides this document's rules, which apply as guidelines rather than
-requirements. Persona language, explicit anti-pattern callouts, and end-of-prompt reinforcement are functional in a
-system prompt and are allowed even when they read as flourish or redundancy.
+[`AGENTS.md`](../AGENTS.md), `.agents/skills/**/SKILL.md`, `.agents/skills/**/project.md`, and `.claude/agents/*.md`
+are system prompts whose primary purpose is to steer LLM behavior. That purpose overrides this document's rules,
+which apply as guidelines rather than requirements. Persona language, explicit anti-pattern callouts, and
+end-of-prompt reinforcement are functional in a system prompt and are allowed even when they read as flourish or
+redundancy.
 
 ## Roadmap
 

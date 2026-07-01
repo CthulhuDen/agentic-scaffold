@@ -21,6 +21,9 @@ The repository's universal agent obligations are themselves encoded as skills wi
 work, editing code or documentation, running a subagent, or committing — so every agent loads them before the
 work they govern.
 
+The `policy` and `policy-editor` skills also apply project-owned rules from a `project.md` beside their
+`SKILL.md`, giving the client a skill-layer home for rules the scaffold does not ship.
+
 ## Subagent definitions
 
 Subagent prompts in [`.claude/agents/`](../.claude/agents) are themselves agent-instruction documents,
@@ -35,5 +38,5 @@ permission, and sandbox details vary per harness.
 The scaffold owns every `.agents/skills/**/SKILL.md` and every `.claude/agents/*.md`. Push overwrites them on
 every sync.
 
-The client owns [`AGENTS.md`](../AGENTS.md); the scaffold seeds it as a stub on first install and never
-overwrites it.
+The client owns [`AGENTS.md`](../AGENTS.md) and the `policy` and `policy-editor` skills' `project.md` files; the
+scaffold seeds them as stubs on first install and never overwrites them.

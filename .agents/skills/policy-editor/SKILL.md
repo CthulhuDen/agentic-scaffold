@@ -1,11 +1,17 @@
 ---
 name: policy-editor
 description: >-
-  ALWAYS invoke this skill before declaring a code or documentation change complete. NEVER finish an edit
-  without invoking this skill.
+  ALWAYS invoke this skill before declaring your first code or documentation change of the session complete. NEVER
+  finish an edit without having invoked it. One invocation is enough: once its content is in context, do not invoke
+  it again.
 ---
 
 Invoke the `policy` skill as well before you continue, if you haven't already.
+
+## Apply the project-specific editor rules in project.md before declaring a change complete.
+
+[`project.md`](project.md) in this skill's directory carries editor rules specific to this project; every rule it
+states is binding.
 
 ## Keep specs compact
 
