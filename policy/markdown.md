@@ -38,6 +38,11 @@ or to the section anchor for a section reference.
 mentions of it are always conceptual rather than navigation pointers. Plain backticks are used; a Markdown link
 would dangle when the file is absent.
 
+**Exception: agent-instruction documents.** The documents enumerated in
+[`doc-quality.md` §Agent-instruction documents](doc-quality.md#agent-instruction-documents) are system prompts
+consumed as prompt text, where steering behavior, not navigation, is the purpose; plain backticked names are
+allowed.
+
 **Exception: skill names.** Skill mentions are never written as Markdown links to the skill's `SKILL.md`: a link
 invites a Read of the file, and a mid-flow Read is the wrong mechanism for accessing a skill on any supported
 harness, each of which exposes a native skill-invocation primitive instead. When agent instructions name a skill,

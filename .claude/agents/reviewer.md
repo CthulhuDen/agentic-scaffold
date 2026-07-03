@@ -8,7 +8,7 @@
 name: reviewer
 description: |-
   Independent code reviewer. Use to verify changed code and docs or the whole codebase conformance with the policy/
-  rule set, SPECS.md and the specs/ for separate features.
+  rule set, SPEC.md and the specs/ for separate features.
 
   Do not add any introduction or explanation when invoking this agent. Pass strictly the items defined in the contract.
 
