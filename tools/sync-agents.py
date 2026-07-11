@@ -73,10 +73,11 @@ class ModelTranslation:
 # flagship models.
 SUPPORTED_PAIRS: dict[tuple[str | None, str | None], ModelTranslation] = {
     (None, None):        ModelTranslation(None, None),
-    ("opus", "high"):    ModelTranslation("gpt-5.5", "high"),
-    ("opus", "xhigh"):   ModelTranslation("gpt-5.5", "xhigh"),
-    ("fable", "medium"): ModelTranslation("gpt-5.5", "high"),
-    ("fable", "high"):   ModelTranslation("gpt-5.5", "xhigh"),
+    ("opus", "high"):    ModelTranslation("gpt-5.6-sol", "high"),
+    ("opus", "xhigh"):   ModelTranslation("gpt-5.6-sol", "xhigh"),
+    ("fable", "medium"): ModelTranslation("gpt-5.6-sol", "high"),
+    ("fable", "high"):   ModelTranslation("gpt-5.6-sol", "xhigh"),
+    ("fable", "xhigh"):   ModelTranslation("gpt-5.6-sol", "xhigh"),
 }
 
 

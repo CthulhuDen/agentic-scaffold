@@ -53,7 +53,7 @@ description: |-
   consistency is one of its primary checks. Never pre-split a change to make it "easier" to review — if a diff is
   genuinely too large for safe review, the reviewer will say so as a finding.
 disallowedTools: Write, Edit, MultiEdit, NotebookEdit
-model: opus
+model: fable
 effort: xhigh
 ---
 
