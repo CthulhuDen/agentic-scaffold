@@ -13,6 +13,15 @@ description: >-
 one, and a roadmap may not be present in the repository at all. When a roadmap exists, consult it before starting
 work, do not jump ahead, and work on at most one iteration at a time.
 
+## Formatting and documentation policy
+
+`ROADMAP.md` is a planning document, not repository documentation. It is exempt from
+[`policy/doc-quality.md`](../../../policy/doc-quality.md), [`policy/markdown.md`](../../../policy/markdown.md),
+and [`policy/charts.md`](../../../policy/charts.md), and [`tools/markdown.sh`](../../../tools/markdown.sh) skips
+it. Never condense, reformat, restyle, or line-wrap roadmap content to satisfy those conventions — detail is the
+roadmap's purpose. Research findings, file and line anchors, exact signatures, command sequences, verbatim
+design notes, and long lines all belong here.
+
 ## Iteration shape
 
 Each iteration carries a number, a title, a status (`pending` / `in-progress` / `done`), SPEC section references,
@@ -21,6 +30,8 @@ as work progresses and freeze with the rest when the iteration is marked `done`.
 
 Each iteration must be independently verifiable and must leave the project buildable and testable. Do not
 introduce changes that depend on incomplete future iterations.
+
+Acceptance criteria must read clearly to a fresh implementing agent.
 
 ## Status flow
 

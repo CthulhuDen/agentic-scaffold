@@ -1,7 +1,15 @@
 # Markdown conventions
 
-These rules apply to all `.md` files in this repository. Documentation content rules live in
+These rules apply to all `.md` files in this repository except planning documents such as `ROADMAP.md`, which
+are exempt (see [`Planning documents`](doc-quality.md#planning-documents)). Documentation content rules live in
 [`doc-quality.md`](doc-quality.md).
+
+## Planning documents
+
+No rule in this document applies to `ROADMAP.md` or any other planning document (see
+[`doc-quality.md`](doc-quality.md#planning-documents)): line wrapping, table alignment, structure, headings, and
+cross-reference linking are all waived. `tools/markdown.sh` skips `ROADMAP.md` even when it is named as an
+explicit argument, so `fmt` never rewrites it.
 
 ## Line wrapping
 
@@ -52,8 +60,6 @@ intent explicit (for example, "invoke the `skill-name` skill before continuing")
 
 ## Headings
 
-Section headings use AP-style Title Case: capitalize the first and last word and all nouns, verbs, adjectives,
-adverbs, and pronouns; lowercase articles, coordinating conjunctions, and prepositions of three letters or fewer
-(`and`, `or`, `the`, `of`, `in`, `to`, `by`, `on`, `for`). Hyphenated compounds capitalize both parts
-(`Post-Allowlist Body`, `System-Prompt Addendum`). Code identifiers inside headings stay verbatim — backticks
-preserve source casing.
+Section headings use sentence case: the first word is capitalized, every other word is lowercase except proper
+nouns and acronyms. Code identifiers, file names, and other verbatim tokens keep their source casing anywhere in
+the heading, including the first position — a heading may start with a lowercase identifier.

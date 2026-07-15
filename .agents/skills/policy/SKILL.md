@@ -31,6 +31,14 @@ Load [`policy/doc-quality.md`](../../../policy/doc-quality.md) and [`policy/mark
 [`policy/charts.md`](../../../policy/charts.md) before you write, edit, or review any documentation; every rule they
 state is binding.
 
+## Never judge a planning document by the documentation or formatting policies.
+
+`ROADMAP.md` and any other temporary planning document — drafted to plan or track work in progress, deleted when
+done — are exempt from [`policy/doc-quality.md`](../../../policy/doc-quality.md),
+[`policy/markdown.md`](../../../policy/markdown.md), and [`policy/charts.md`](../../../policy/charts.md). Do not
+apply those rules to one, do not reformat it, and do not run `tools/markdown.sh` against it — the script skips
+`ROADMAP.md` on its own. See [`Planning documents`](../../../policy/doc-quality.md#planning-documents).
+
 ## Delete scratch files before declaring a task complete.
 
 If you create a file during a task for research or exploratory purposes, delete it before considering the task

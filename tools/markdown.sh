@@ -9,6 +9,10 @@
 #
 # With no files, operates on every tracked or untracked-but-not-ignored *.md in the repo,
 # excluding the CLAUDE.md symlink (its target AGENTS.md is covered on its own).
+#
+# Planning documents are never formatted (see policy/doc-quality.md): ROADMAP.md is dropped
+# from the no-file sweep and skipped by name when passed explicitly, and explicitly passed
+# gitignored files — where other planning documents live — are skipped as well.
 set -euo pipefail
 
 DPRINT_VERSION=0.54.0
@@ -37,12 +41,21 @@ shift
 cd "$(git rev-parse --show-toplevel)"
 
 if [[ $# -gt 0 ]]; then
-  files=("$@")
+  files=()
+  for f in "$@"; do
+    if [[ "$f" == ROADMAP.md || "$f" == */ROADMAP.md ]]; then
+      echo "skipping $f: planning documents are exempt from formatting" >&2
+    elif git check-ignore -q -- "$f"; then
+      echo "skipping $f: gitignored files are exempt from formatting" >&2
+    else
+      files+=("$f")
+    fi
+  done
 else
   files=()
   while IFS= read -r -d '' f; do
     files+=("$f")
-  done < <(git ls-files -z --cached --others --exclude-standard '*.md' ':!CLAUDE.md')
+  done < <(git ls-files -z --cached --others --exclude-standard '*.md' ':!CLAUDE.md' ':!ROADMAP.md')
 fi
 
 if [[ ${#files[@]} -eq 0 ]]; then

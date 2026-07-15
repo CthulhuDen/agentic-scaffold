@@ -9,19 +9,24 @@ Documentation is free of errors and warnings reported by the project's IDE inspe
 
 ## Agent-instruction documents
 
-[`AGENTS.md`](../AGENTS.md), `.agents/skills/**/SKILL.md`, `.agents/skills/**/project.md`, and `.claude/agents/*.md`
-are system prompts whose primary purpose is to steer LLM behavior. That purpose overrides this document's rules,
+[`AGENTS.md`](../AGENTS.md), `.agents/skills/**/SKILL.md`, `.agents/skills/**/project.md`, `.claude/agents/*.md`,
+and the engine-prompt `*.md` assets embedded under `internal/` are system prompts whose primary purpose is to
+steer LLM behavior. That purpose overrides this document's rules,
 which apply as guidelines rather than requirements. Persona language, explicit anti-pattern callouts, and
 end-of-prompt reinforcement are functional in a system prompt and are allowed even when they read as flourish or
 redundancy.
 
-## Roadmap
+## Planning documents
 
-`ROADMAP.md` is a temporary planning artifact deleted once its iterations are complete. The rules in this
-document apply as guidelines, not requirements. Iteration entries may be terse to the point of telegraphic, may
-quote audit findings or design notes verbatim, may carry change-narrative ("dropped because …", "previously
-…"), and need not justify the absence of alternatives. The acceptance criteria still need to read clearly to a
-fresh implementing agent — that is the only hard constraint.
+`ROADMAP.md` and any other temporary planning document — one drafted to plan or track work in progress and
+deleted when that work completes, never maintained as a description of the system — is not documentation. No
+rule in this document, in [`markdown.md`](markdown.md), or in [`charts.md`](charts.md) applies to a planning
+document, and none may be cited against one in authoring or review. Detail is the point of a plan: research
+findings, file and line anchors, exact signatures and command sequences, verbatim design notes, change-narrative,
+and long unwrapped lines all belong in one. `ROADMAP.md` is the only planning document kept in tracked space —
+`tools/markdown.sh` excludes it by name (see [`verification-gates.md`](verification-gates.md)); every other
+planning document lives at a gitignored path, which the Markdown gate's file selection already excludes. The
+only content requirements for `ROADMAP.md` are the `roadmap` skill's own.
 
 ## Specs
 

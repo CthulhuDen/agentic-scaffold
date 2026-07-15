@@ -1,5 +1,8 @@
 # Chart conventions
 
+These rules do not apply to planning documents such as `ROADMAP.md` (see
+[`doc-quality.md`](doc-quality.md#planning-documents)).
+
 ## Format
 
 Markdown charts use Mermaid.
@@ -44,7 +47,7 @@ flowchart TD
 Chart introductions describe present-state behavior: the path covered, the state entering the chart, and the state
 handed off.
 
-## Entry Points
+## Entry points
 
 Ownership-boundary calls and chart-to-chart handoffs use `ENTRY:`:
 
@@ -61,7 +64,7 @@ Helper calls inside the current owner use assignment or plain call syntax.
 Rectangular nodes carry calls, assignments, audit events, logs, and effects. Diamond nodes carry decisions. Other
 Mermaid shapes require domain meaning in the surrounding documentation.
 
-## Calls and Effects
+## Calls and effects
 
 Helper calls that produce values use assignment form, and assigned values are reused downstream:
 
@@ -88,7 +91,7 @@ Node labels name real symbols — method calls, audit events, configured constan
 self-describing operations like `send emptyReply`. Don't invent function-like primitives such as
 `terminal_reply(kind, text)` that don't appear in code; a future reader can't grep for them.
 
-## Audit and Logs
+## Audit and logs
 
 Audit-event nodes use `audit:` and event-specific values use `extra:`:
 
@@ -120,14 +123,14 @@ flowchart TD
 Other structured-emission channels mirror this audit-node convention, carrying the channel's own prefix in place of
 `audit:` and `extra:` for event-specific values.
 
-## Branch Labels
+## Branch labels
 
 A fallible operation with an explicit `fail` edge uses a matching `ok` edge for the success continuation. Decision
 nodes use domain labels.
 
 Branch outcomes are edge labels, not destination-node names.
 
-## Mermaid Features
+## Mermaid features
 
 Subgraphs are used only when the nested boundary is part of the documented behavior.
 
