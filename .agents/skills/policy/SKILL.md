@@ -54,3 +54,6 @@ The user approves bash commands by their shape, so every needless variation forc
 shell constructs trigger expansion-based approval prompts. Specifically:
 
 - Avoid shell expansions beyond `$?` (e.g., `${PIPESTATUS[N]}`, `$(…)`).
+- Run `git` and other tools from the repository root without `-C <path>` or a `cd` prefix — the working directory
+  already is the repository root and persists between calls, and an explicit path changes the command's shape so it
+  no longer matches the user's pre-approved rules.
