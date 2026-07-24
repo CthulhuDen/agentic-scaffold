@@ -35,7 +35,10 @@ import yaml
 # operator what to do from the status: drift is fixed by regenerating, an invalid definition is
 # not. Drift avoids 1 because this script does not own that value — an uncaught exception and a
 # `uv` dependency failure both exit 1 — and a failure nobody classified must reach the hooks'
-# catch-all rather than the regenerate instruction.
+# catch-all rather than the regenerate instruction. Only drift needs an exclusively owned value:
+# 2 is also argparse's and `uv`'s bad-invocation status, which stays harmless only while the hooks
+# route every non-drift status to one "read the error" branch — so nothing may branch on
+# EXIT_INVALID_INPUT.
 EXIT_INVALID_INPUT = 2
 EXIT_DRIFT = 3
 
@@ -81,15 +84,17 @@ class ModelTranslation:
 # Keys are pinned model IDs rather than CC aliases: an alias floats to whichever version the
 # local CC and provider resolve it to, silently re-pointing the Claude half of an equivalence
 # while the codex half stays put. Any pair not listed is unsupported and rejected.
+# Effort is keyed jointly with the model because a model ID denotes a capability tier: a Claude
+# model one tier above the rows below maps to the codex effort one rung above theirs, not to the
+# same rung.
 # (None, None) means both frontmatter fields are absent (or `model: inherit` with no effort):
 # nothing is emitted and codex inherits its parent defaults.
 # Claude side verified against Claude Code docs on 2026-07-24; codex side unchanged since
 # 2026-06-11. Update when Anthropic / OpenAI ship new flagship models.
 SUPPORTED_PAIRS: dict[tuple[str | None, str | None], ModelTranslation] = {
-    (None, None):                ModelTranslation(None, None),
-    ("claude-opus-5", "medium"): ModelTranslation("gpt-5.6-sol", "medium"),
-    ("claude-opus-5", "high"):   ModelTranslation("gpt-5.6-sol", "high"),
-    ("claude-opus-5", "xhigh"):  ModelTranslation("gpt-5.6-sol", "xhigh"),
+    (None, None):               ModelTranslation(None, None),
+    ("claude-opus-5", "high"):  ModelTranslation("gpt-5.6-sol", "high"),
+    ("claude-opus-5", "xhigh"): ModelTranslation("gpt-5.6-sol", "xhigh"),
 }
 
 
@@ -115,15 +120,24 @@ def die(msg: str) -> NoReturn:
 _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?(.*)\Z", re.DOTALL)
 
 
-# Declared `model` spellings that are not SUPPORTED_PAIRS keys themselves: `inherit` means "no
-# model", and a context-window variant resolves to the bare model ID's key.
-def model_key(model: str | None) -> str | None:
+def _model_key(model: str | None) -> str | None:
+    """Map a declared `model` onto its SUPPORTED_PAIRS key.
+
+    `inherit` means "no model"; a context-window variant resolves to the bare model ID.
+    """
     if model is None:
         return None
     model = model.strip()
     if model == "inherit":
         return None
-    return _CONTEXT_WINDOW_SUFFIX_RE.sub("", model).strip()
+    # No strip() after the suffix: CC cannot resolve `claude-opus-5 [1m]`, so the space must
+    # survive into the key and fail the lookup.
+    return _CONTEXT_WINDOW_SUFFIX_RE.sub("", model)
+
+
+def _pair_label(pair: tuple[str | None, str | None]) -> str:
+    """Render a (model, effort) key for the unsupported-pair error, both sides in one vocabulary."""
+    return "+".join(repr(v) if v is not None else "<unset>" for v in pair)
 
 
 def parse_cc_subagent(path: Path) -> CCSubagent:
@@ -171,12 +185,17 @@ def parse_cc_subagent(path: Path) -> CCSubagent:
             die(f"{path}: 'effort' must be a string")
         if effort not in ALLOWED_EFFORTS:
             die(f"{path}: unknown effort {effort!r} (allowed: {', '.join(sorted(ALLOWED_EFFORTS))})")
-    # Checked here rather than in translate_model so an `--opencode` run rejects a definition that
-    # would halt every codex session: .claude/agents/ is one source of truth for both targets.
-    if (model_key(model), effort) not in SUPPORTED_PAIRS:
-        supported = ", ".join(f"{m or '<unset>'}+{e or '<unset>'}" for m, e in SUPPORTED_PAIRS)
-        die(f"{path}: unsupported model+effort pair {model!r}+{effort!r} "
-            f"(supported: {supported})")
+    # The codex-only constraints are checked here rather than at codex emission so an
+    # `--opencode` run rejects a definition that would halt every codex session:
+    # .claude/agents/ is one source of truth for both targets.
+    key = (_model_key(model), effort)
+    if key not in SUPPORTED_PAIRS:
+        supported = ", ".join(_pair_label(p) for p in SUPPORTED_PAIRS)
+        die(f"{path}: unsupported model+effort pair {_pair_label(key)} (supported: {supported})")
+    if "'''" in body:
+        die(f"{path}: body contains literal '''; cannot emit codex TOML safely")
+    if "'''" in description:
+        die(f"{path}: description contains literal '''; cannot emit codex TOML safely")
     return CCSubagent(
         path=path,
         name=name,
@@ -213,7 +232,7 @@ def compute_denied(cc: CCSubagent) -> set[str]:
 
 def translate_model(cc: CCSubagent) -> ModelTranslation:
     # parse_cc_subagent already rejected any pair the table does not carry.
-    return SUPPORTED_PAIRS[(model_key(cc.model), cc.effort)]
+    return SUPPORTED_PAIRS[(_model_key(cc.model), cc.effort)]
 
 
 # ---------- opencode emission ----------
@@ -276,10 +295,7 @@ def _build_opencode_permission(cc: CCSubagent) -> dict[str, str]:
 
 
 def render_codex_agent(cc: CCSubagent) -> str:
-    if "'''" in cc.body:
-        die(f"{cc.path}: body contains literal '''; cannot emit codex TOML safely")
-    if "'''" in cc.description:
-        die(f"{cc.path}: description contains literal '''; cannot emit codex TOML safely")
+    # parse_cc_subagent already rejected the ''' that would break the TOML literals below.
     out: list[str] = []
     out.append(
         f"# AUTO-GENERATED from .claude/agents/{cc.name}.md by tools/sync-agents.py. "
@@ -419,7 +435,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     g = p.add_mutually_exclusive_group()
     g.add_argument("--check", action="store_true",
-                   help=f"exit {EXIT_DRIFT} if any output would change; no writes, no prompt")
+                   help=f"exit {EXIT_DRIFT} if any output would change; any other non-zero "
+                        "status means the check did not report drift; no writes, no prompt")
     g.add_argument("--dry-run", action="store_true",
                    help="print intended diff to stdout and exit 0")
     g.add_argument("--yes", action="store_true",

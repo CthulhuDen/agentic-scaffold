@@ -34,7 +34,7 @@ const DRIFT: Notice = {
 }
 const CHECK_FAILED: Notice = {
   title: "agent file check failed",
-  message: "tools/sync-agents.py --check errored instead of reporting drift. Run it to see why.",
+  message: "tools/sync-agents.py --check did not report drift. Run it to see why.",
 }
 const TOAST_DURATION_MS = 10_000
 
@@ -51,9 +51,12 @@ export const SyncAgentsCheck: Plugin = async ({ client, directory }) => {
 }
 
 async function runCheck(client: Client, cwd: string): Promise<void> {
+  // Outside the try: a git failure here is not a verdict on the check, and classifying it as one
+  // would blame a script that never ran. The caller logs the rejection instead.
+  const cacheDir = await uvCacheDir(cwd)
+
   let notice: Notice
   try {
-    const cacheDir = await uvCacheDir(cwd)
     await exec("uv", [
       "run",
       "--cache-dir",
@@ -65,9 +68,12 @@ async function runCheck(client: Client, cwd: string): Promise<void> {
     ], { cwd })
     return
   } catch (err) {
-    // Non-zero exit (or spawn failure) — treat as "needs the user's attention" and surface.
-    // A spawn failure carries a string code (ENOENT), so it lands on CHECK_FAILED too.
-    notice = (err as { code?: unknown }).code === EXIT_DRIFT ? DRIFT : CHECK_FAILED
+    // Non-zero exit — treat as "needs the user's attention" and surface.
+    const code = (err as { code?: unknown }).code
+    // Spawn failure (uv absent, cwd gone): the check never ran, so there is no verdict to report
+    // and no remedy a notice could name. Stay silent rather than nag on every prompt.
+    if (code === "ENOENT") return
+    notice = code === EXIT_DRIFT ? DRIFT : CHECK_FAILED
   }
 
   await showToast(client, cwd, notice)
