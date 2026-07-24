@@ -22,9 +22,20 @@ const exec = promisify(execFile)
 // always attempted — when the desktop starts rendering toasts, drop the notification.
 const IS_DESKTOP_SIDECAR = execPath.includes("OpenCode.app/")
 
-const TITLE = "agent files out of date"
-const MESSAGE =
-  ".opencode/agents/ is stale relative to .claude/agents/. Run: tools/sync-agents.py"
+// EXIT_DRIFT in tools/sync-agents.py. The check's stderr is not surfaced here, so the status is
+// the only thing that says which notice to show; every other status means regenerating won't help.
+const EXIT_DRIFT = 3
+
+type Notice = { title: string; message: string }
+
+const DRIFT: Notice = {
+  title: "agent files out of date",
+  message: ".opencode/agents/ is stale relative to .claude/agents/. Run: tools/sync-agents.py",
+}
+const CHECK_FAILED: Notice = {
+  title: "agent file check failed",
+  message: "tools/sync-agents.py --check errored instead of reporting drift. Run it to see why.",
+}
 const TOAST_DURATION_MS = 10_000
 
 export const SyncAgentsCheck: Plugin = async ({ client, directory }) => {
@@ -40,6 +51,7 @@ export const SyncAgentsCheck: Plugin = async ({ client, directory }) => {
 }
 
 async function runCheck(client: Client, cwd: string): Promise<void> {
+  let notice: Notice
   try {
     const cacheDir = await uvCacheDir(cwd)
     await exec("uv", [
@@ -52,13 +64,15 @@ async function runCheck(client: Client, cwd: string): Promise<void> {
       "--opencode",
     ], { cwd })
     return
-  } catch {
+  } catch (err) {
     // Non-zero exit (or spawn failure) — treat as "needs the user's attention" and surface.
+    // A spawn failure carries a string code (ENOENT), so it lands on CHECK_FAILED too.
+    notice = (err as { code?: unknown }).code === EXIT_DRIFT ? DRIFT : CHECK_FAILED
   }
 
-  await showToast(client, cwd)
-  if (IS_DESKTOP_SIDECAR) await showMacNotification()
-  console.error(`[sync-agents-check] ${TITLE}: ${MESSAGE}`)
+  await showToast(client, cwd, notice)
+  if (IS_DESKTOP_SIDECAR) await showMacNotification(notice)
+  console.error(`[sync-agents-check] ${notice.title}: ${notice.message}`)
 }
 
 async function uvCacheDir(cwd: string): Promise<string> {
@@ -66,20 +80,20 @@ async function uvCacheDir(cwd: string): Promise<string> {
   return join(dirname(stdout.trim()), ".tmp", "uv-cache")
 }
 
-async function showToast(client: Client, directory: string): Promise<void> {
+async function showToast(client: Client, directory: string, notice: Notice): Promise<void> {
   try {
     await client.tui.showToast({
       query: { directory },
-      body: { title: TITLE, message: MESSAGE, variant: "warning", duration: TOAST_DURATION_MS },
+      body: { ...notice, variant: "warning", duration: TOAST_DURATION_MS },
     })
   } catch (err) {
     console.error(`[sync-agents-check] tui.showToast failed:`, err)
   }
 }
 
-async function showMacNotification(): Promise<void> {
+async function showMacNotification(notice: Notice): Promise<void> {
   if (platform() !== "darwin") return
-  const script = `display notification "${escapeAppleScript(MESSAGE)}" with title "${escapeAppleScript(TITLE)}"`
+  const script = `display notification "${escapeAppleScript(notice.message)}" with title "${escapeAppleScript(notice.title)}"`
   try {
     await exec("osascript", ["-e", script])
   } catch (err) {

@@ -30,6 +30,15 @@ from typing import NoReturn
 
 import yaml
 
+# Exit statuses. Both harness hooks that run --check (.codex/session-start.sh and
+# .opencode/plugin/sync-agents-check.ts) discard this script's stderr, so they can only tell the
+# operator what to do from the status: drift is fixed by regenerating, an invalid definition is
+# not. Drift avoids 1 because this script does not own that value — an uncaught exception and a
+# `uv` dependency failure both exit 1 — and a failure nobody classified must reach the hooks'
+# catch-all rather than the regenerate instruction.
+EXIT_INVALID_INPUT = 2
+EXIT_DRIFT = 3
+
 SUPPORTED_FIELDS = frozenset({"name", "description", "tools", "disallowedTools", "model", "effort"})
 
 ALL_TARGETS = frozenset({"opencode", "codex"})
@@ -37,6 +46,11 @@ ALL_TARGETS = frozenset({"opencode", "codex"})
 # CC `effort` enum. Parse-time validity check only; which (model, effort) pairs the codex
 # translation supports is governed by SUPPORTED_PAIRS.
 ALLOWED_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
+
+# CC context-window variants (`claude-opus-5[1m]`). Codex has no counterpart, so a known window
+# rides the bare model ID's SUPPORTED_PAIRS entry instead of listing its own.
+KNOWN_CONTEXT_WINDOWS = frozenset({"1m"})
+_CONTEXT_WINDOW_SUFFIX_RE = re.compile(r"\[([^\]]*)\]\Z")
 
 TOOL_MAP: dict[str, str] = {
     "Read": "read",
@@ -64,20 +78,18 @@ class ModelTranslation:
 
 
 # Complete table of supported CC (model, effort) pairs → codex (model, model_reasoning_effort).
-# Effort is translated jointly with the model because the aliases denote capability tiers, not
-# just models: Fable sits a tier above Opus, so fable-at-X equals opus-at-one-rung-above-X on
-# the same OpenAI model. Any pair not listed is unsupported and rejected. (None, None) means
-# both frontmatter fields are absent (or `model: inherit` with no effort): nothing is emitted
-# and codex inherits its parent defaults.
-# Verified against upstream docs on 2026-06-11. Update when Anthropic / OpenAI ship new
-# flagship models.
+# Keys are pinned model IDs rather than CC aliases: an alias floats to whichever version the
+# local CC and provider resolve it to, silently re-pointing the Claude half of an equivalence
+# while the codex half stays put. Any pair not listed is unsupported and rejected.
+# (None, None) means both frontmatter fields are absent (or `model: inherit` with no effort):
+# nothing is emitted and codex inherits its parent defaults.
+# Claude side verified against Claude Code docs on 2026-07-24; codex side unchanged since
+# 2026-06-11. Update when Anthropic / OpenAI ship new flagship models.
 SUPPORTED_PAIRS: dict[tuple[str | None, str | None], ModelTranslation] = {
-    (None, None):        ModelTranslation(None, None),
-    ("opus", "high"):    ModelTranslation("gpt-5.6-sol", "high"),
-    ("opus", "xhigh"):   ModelTranslation("gpt-5.6-sol", "xhigh"),
-    ("fable", "medium"): ModelTranslation("gpt-5.6-sol", "high"),
-    ("fable", "high"):   ModelTranslation("gpt-5.6-sol", "xhigh"),
-    ("fable", "xhigh"):   ModelTranslation("gpt-5.6-sol", "xhigh"),
+    (None, None):                ModelTranslation(None, None),
+    ("claude-opus-5", "medium"): ModelTranslation("gpt-5.6-sol", "medium"),
+    ("claude-opus-5", "high"):   ModelTranslation("gpt-5.6-sol", "high"),
+    ("claude-opus-5", "xhigh"):  ModelTranslation("gpt-5.6-sol", "xhigh"),
 }
 
 
@@ -95,12 +107,23 @@ class CCSubagent:
 
 def die(msg: str) -> NoReturn:
     print(f"error: {msg}", file=sys.stderr)
-    sys.exit(1)
+    sys.exit(EXIT_INVALID_INPUT)
 
 
 # ---------- parsing ----------
 
 _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?(.*)\Z", re.DOTALL)
+
+
+# Declared `model` spellings that are not SUPPORTED_PAIRS keys themselves: `inherit` means "no
+# model", and a context-window variant resolves to the bare model ID's key.
+def model_key(model: str | None) -> str | None:
+    if model is None:
+        return None
+    model = model.strip()
+    if model == "inherit":
+        return None
+    return _CONTEXT_WINDOW_SUFFIX_RE.sub("", model).strip()
 
 
 def parse_cc_subagent(path: Path) -> CCSubagent:
@@ -123,7 +146,7 @@ def parse_cc_subagent(path: Path) -> CCSubagent:
                 f"(supported: {', '.join(sorted(SUPPORTED_FIELDS))})",
                 file=sys.stderr,
             )
-        sys.exit(1)
+        sys.exit(EXIT_INVALID_INPUT)
     name = fm.get("name")
     description = fm.get("description")
     if not isinstance(name, str) or not name:
@@ -135,14 +158,25 @@ def parse_cc_subagent(path: Path) -> CCSubagent:
     tools = _normalize_tools(fm.get("tools"), "tools", path)
     disallowed = _normalize_tools(fm.get("disallowedTools"), "disallowedTools", path) or []
     model = fm.get("model")
-    if model is not None and not isinstance(model, str):
-        die(f"{path}: 'model' must be a string")
+    if model is not None:
+        if not isinstance(model, str):
+            die(f"{path}: 'model' must be a string")
+        window = _CONTEXT_WINDOW_SUFFIX_RE.search(model.strip())
+        if window is not None and window.group(1) not in KNOWN_CONTEXT_WINDOWS:
+            die(f"{path}: unknown context window in model {model!r} "
+                f"(known: {', '.join(sorted(KNOWN_CONTEXT_WINDOWS))})")
     effort = fm.get("effort")
     if effort is not None:
         if not isinstance(effort, str):
             die(f"{path}: 'effort' must be a string")
         if effort not in ALLOWED_EFFORTS:
             die(f"{path}: unknown effort {effort!r} (allowed: {', '.join(sorted(ALLOWED_EFFORTS))})")
+    # Checked here rather than in translate_model so an `--opencode` run rejects a definition that
+    # would halt every codex session: .claude/agents/ is one source of truth for both targets.
+    if (model_key(model), effort) not in SUPPORTED_PAIRS:
+        supported = ", ".join(f"{m or '<unset>'}+{e or '<unset>'}" for m, e in SUPPORTED_PAIRS)
+        die(f"{path}: unsupported model+effort pair {model!r}+{effort!r} "
+            f"(supported: {supported})")
     return CCSubagent(
         path=path,
         name=name,
@@ -178,14 +212,8 @@ def compute_denied(cc: CCSubagent) -> set[str]:
 
 
 def translate_model(cc: CCSubagent) -> ModelTranslation:
-    model = cc.model.strip() if cc.model is not None else None
-    if model == "inherit":
-        model = None
-    key = (model, cc.effort)
-    if key not in SUPPORTED_PAIRS:
-        supported = ", ".join(f"{m or '<unset>'}+{e or '<unset>'}" for m, e in SUPPORTED_PAIRS)
-        die(f"{cc.path}: unsupported model+effort pair {key[0]!r}+{key[1]!r} (supported: {supported})")
-    return SUPPORTED_PAIRS[key]
+    # parse_cc_subagent already rejected any pair the table does not carry.
+    return SUPPORTED_PAIRS[(model_key(cc.model), cc.effort)]
 
 
 # ---------- opencode emission ----------
@@ -391,7 +419,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     g = p.add_mutually_exclusive_group()
     g.add_argument("--check", action="store_true",
-                   help="exit 1 if any output would change; no writes, no prompt")
+                   help=f"exit {EXIT_DRIFT} if any output would change; no writes, no prompt")
     g.add_argument("--dry-run", action="store_true",
                    help="print intended diff to stdout and exit 0")
     g.add_argument("--yes", action="store_true",
@@ -433,7 +461,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.check:
         sys.stdout.write(diff)
-        return 1
+        return EXIT_DRIFT
     if args.dry_run:
         sys.stdout.write(diff)
         return 0

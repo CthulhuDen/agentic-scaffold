@@ -2,8 +2,11 @@
 # Codex SessionStart hook wrapper for sync-agents.
 #
 # Runs `tools/sync-agents.py --check`. On success: exit 0, no output, codex continues.
-# On drift: emit JSON {continue:false, stopReason, systemMessage} so codex halts the
-# session with a clear instruction to regenerate.
+# Otherwise: emit JSON {continue:false, stopReason, systemMessage} so codex halts the
+# session. The check's own stderr is not surfaced to the operator, so the instruction comes
+# from the status alone: 3 (EXIT_DRIFT) says regenerate, anything else says read the error.
+# Drift owns 3 rather than 1 because an uncaught exception or a `uv` failure also exits 1, and
+# neither is fixed by regenerating.
 #
 # See https://developers.openai.com/codex/hooks for the hook output schema.
 
@@ -16,10 +19,21 @@ cache_dir="$(dirname "$common_git_dir")/.tmp/uv-cache"
 cd "$repo_root" || exit 0
 mkdir -p "$cache_dir" || exit 0
 
-if uv run --cache-dir "$cache_dir" --script tools/sync-agents.py --check >/dev/null 2>&1; then
-  exit 0
-fi
+uv run --cache-dir "$cache_dir" --script tools/sync-agents.py --check >/dev/null 2>&1
+status=$?
 
-cat <<'JSON'
+case $status in
+0)
+  exit 0
+  ;;
+3) # EXIT_DRIFT
+  cat <<'JSON'
 {"continue":false,"stopReason":"sync-agents check failed — generated agent files are out of date","systemMessage":"`.codex/agents/` and `.opencode/agents/` are out of date relative to `.claude/agents/`.\n\nRegenerate with:\n\n    tools/sync-agents.py\n\nThen restart this codex session."}
 JSON
+  ;;
+*)
+  cat <<'JSON'
+{"continue":false,"stopReason":"sync-agents check failed — a .claude/agents/ definition is invalid, or the check could not run","systemMessage":"`tools/sync-agents.py --check` failed with an error instead of reporting drift, so regenerating will not help.\n\nSee the error with:\n\n    tools/sync-agents.py --check\n\nFix what it reports, then restart this codex session."}
+JSON
+  ;;
+esac
