@@ -81,20 +81,23 @@ class ModelTranslation:
 
 
 # Complete table of supported CC (model, effort) pairs → codex (model, model_reasoning_effort).
-# Keys are pinned model IDs rather than CC aliases: an alias floats to whichever version the
-# local CC and provider resolve it to, silently re-pointing the Claude half of an equivalence
-# while the codex half stays put. Any pair not listed is unsupported and rejected.
+# Keys may be CC family aliases as well as pinned model IDs. An alias floats with CC's resolution,
+# but OpenAI publishes no rolling alias for a codex model family, so an alias row goes stale when
+# Anthropic ships a new model in that family: it silently pairs the new model with the old codex
+# one until updated. Any pair not listed is unsupported and rejected.
 # Effort is keyed jointly with the model because a model ID denotes a capability tier: a Claude
 # model one tier above the rows below maps to the codex effort one rung above theirs, not to the
 # same rung.
 # (None, None) means both frontmatter fields are absent (or `model: inherit` with no effort):
 # nothing is emitted and codex inherits its parent defaults.
-# Claude side verified against Claude Code docs on 2026-07-24; codex side unchanged since
-# 2026-06-11. Update when Anthropic / OpenAI ship new flagship models.
+# claude-opus-5 rows verified against Claude Code docs on 2026-07-24, codex side unchanged since
+# 2026-06-11; the opus row verified against both vendors' docs on 2026-09-23, when `opus`
+# resolved to Opus 5.5. Update when Anthropic / OpenAI ship new flagship models.
 SUPPORTED_PAIRS: dict[tuple[str | None, str | None], ModelTranslation] = {
     (None, None):               ModelTranslation(None, None),
     ("claude-opus-5", "high"):  ModelTranslation("gpt-5.6-sol", "high"),
     ("claude-opus-5", "xhigh"): ModelTranslation("gpt-5.6-sol", "xhigh"),
+    ("opus", "xhigh"):          ModelTranslation("gpt-6-sol", "xhigh"),
 }
 
 
