@@ -50,10 +50,10 @@ ALL_TARGETS = frozenset({"opencode", "codex"})
 # translation supports is governed by SUPPORTED_PAIRS.
 ALLOWED_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 
-# CC context-window variants (`claude-opus-5[1m]`). Codex has no counterpart, so a known window
+# CC context-window variants (`opus[1m]`). Codex has no counterpart, so a known window
 # rides the bare model ID's SUPPORTED_PAIRS entry instead of listing its own.
 KNOWN_CONTEXT_WINDOWS = frozenset({"1m"})
-_CONTEXT_WINDOW_SUFFIX_RE = re.compile(r"\[([^\]]*)\]\Z")
+_CONTEXT_WINDOW_SUFFIX_RE = re.compile(r"\[([^]]*)]\Z")
 
 TOOL_MAP: dict[str, str] = {
     "Read": "read",
@@ -90,14 +90,12 @@ class ModelTranslation:
 # same rung.
 # (None, None) means both frontmatter fields are absent (or `model: inherit` with no effort):
 # nothing is emitted and codex inherits its parent defaults.
-# claude-opus-5 rows verified against Claude Code docs on 2026-07-24, codex side unchanged since
-# 2026-06-11; the opus row verified against both vendors' docs on 2026-09-23, when `opus`
-# resolved to Opus 5.5. Update when Anthropic / OpenAI ship new flagship models.
+# The opus row's codex side verified against OpenAI's docs on 2026-11-11, its CC side on
+# 2026-09-23, when `opus` resolved to Opus 5.5. Update when Anthropic / OpenAI ship new flagship
+# models.
 SUPPORTED_PAIRS: dict[tuple[str | None, str | None], ModelTranslation] = {
-    (None, None):               ModelTranslation(None, None),
-    ("claude-opus-5", "high"):  ModelTranslation("gpt-5.6-sol", "high"),
-    ("claude-opus-5", "xhigh"): ModelTranslation("gpt-5.6-sol", "xhigh"),
-    ("opus", "xhigh"):          ModelTranslation("gpt-6-sol", "xhigh"),
+    (None, None):      ModelTranslation(None, None),
+    ("opus", "xhigh"): ModelTranslation("gpt-6.1-sol", "xhigh"),
 }
 
 
@@ -133,7 +131,7 @@ def _model_key(model: str | None) -> str | None:
     model = model.strip()
     if model == "inherit":
         return None
-    # No strip() after the suffix: CC cannot resolve `claude-opus-5 [1m]`, so the space must
+    # No strip() after the suffix: CC cannot resolve `opus [1m]`, so the space must
     # survive into the key and fail the lookup.
     return _CONTEXT_WINDOW_SUFFIX_RE.sub("", model)
 
@@ -170,7 +168,7 @@ def parse_cc_subagent(path: Path) -> CCSubagent:
         die(f"{path}: 'name' is required")
     if not isinstance(description, str) or not description.strip():
         die(f"{path}: 'description' is required")
-    if name != path.stem:
+    if path.stem != name:
         die(f"{path}: name field {name!r} does not match filename stem {path.stem!r}")
     tools = _normalize_tools(fm.get("tools"), "tools", path)
     disallowed = _normalize_tools(fm.get("disallowedTools"), "disallowedTools", path) or []
@@ -257,9 +255,10 @@ def render_opencode(cc: CCSubagent) -> str:
     # Opencode `model` is intentionally never emitted: we don't know which provider the
     # downstream user has configured, so we let opencode's own default apply. CC's `model`
     # field still flows to the codex side via translate_model().
-    fm: dict[str, object] = {}
-    fm["description"] = _LiteralStr(cc.description) if "\n" in cc.description else cc.description
-    fm["mode"] = "subagent"
+    fm: dict[str, object] = {
+        "description": _LiteralStr(cc.description) if "\n" in cc.description else cc.description,
+        "mode": "subagent",
+    }
     permission = _build_opencode_permission(cc)
     if permission:
         fm["permission"] = permission
@@ -299,13 +298,14 @@ def _build_opencode_permission(cc: CCSubagent) -> dict[str, str]:
 
 def render_codex_agent(cc: CCSubagent) -> str:
     # parse_cc_subagent already rejected the ''' that would break the TOML literals below.
-    out: list[str] = []
-    out.append(
-        f"# AUTO-GENERATED from .claude/agents/{cc.name}.md by tools/sync-agents.py. "
-        "Do not edit."
-    )
-    out.append(f'name = "{_toml_basic_escape(cc.name)}"')
-    out.append(f"description = {_toml_string(cc.description)}")
+    out: list[str] = [
+        (
+            f"# AUTO-GENERATED from .claude/agents/{cc.name}.md by tools/sync-agents.py. "
+            "Do not edit."
+        ),
+        f'name = "{_toml_basic_escape(cc.name)}"',
+        f"description = {_toml_string(cc.description)}",
+    ]
     mt = translate_model(cc)
     if mt.codex_model is not None:
         out.append(f'model = "{mt.codex_model}"')
@@ -435,7 +435,7 @@ def find_repo_root(override: str | None) -> Path:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p = argparse.ArgumentParser(description=(__doc__ or "").partition("\n")[0])
     g = p.add_mutually_exclusive_group()
     g.add_argument("--check", action="store_true",
                    help=f"exit {EXIT_DRIFT} if any output would change; any other non-zero "
