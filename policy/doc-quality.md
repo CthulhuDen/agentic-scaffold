@@ -45,6 +45,9 @@ visible.
 
 [`SPEC.md`](../SPEC.md) is the only file that describes the system end-to-end.
 
+Catalog values the code names must appear in their spec, and audit-event tables must match the code exactly. A project
+that checks either mechanically lists the check in [`verification-gates.md`](verification-gates.md).
+
 **Orchestration specs.** A spec that documents an end-to-end flow may be designated an exception to the
 per-component scope rule: it describes the surface-level flow from intake to terminal output, including the behavior
 of the components it coordinates, and serves as [`SPEC.md`](../SPEC.md)'s delegate for per-surface narrative.
@@ -52,11 +55,11 @@ Cross-component invariants the orchestrator depends on still link to the owner's
 
 **Temporal behavior.** Use charts for ordered behavior when state mutation, context-field availability, audit-context
 availability, audit events, or externally visible effects depend on sequence. The chart shows the mutation or emission
-point. Tables are the required form for static contracts, API surfaces, fixed values, payload shapes, ownership
-invariants, and branch summaries. Prose paragraphs that state two or more such facts are a doc-quality defect and
-rejected at review — convert them to a table row each. Two or more named members of the same kind — methods of a
-surface, helpers, predicates, fields of a payload, error shapes, event names — go in a table; a single member may
-stay inline.
+point, at the level of component-boundary calls and effects ([`charts.md`](charts.md#calls-and-effects)). Tables are the
+required form for static contracts, API surfaces, fixed values, payload shapes, ownership invariants, and branch
+summaries. Prose paragraphs that state two or more such facts are a doc-quality defect and rejected at review — convert
+them to a table row each. Two or more named members of the same kind — methods of a surface, helpers, predicates, fields
+of a payload, error shapes, event names — go in a table; a single member may stay inline.
 
 **Charts in sync with code.** Any code edit that adds, removes, or relocates an audit event, runtime log, state
 mutation, externally visible effect, or sequencing decision requires updating the owning chart in the same edit. A

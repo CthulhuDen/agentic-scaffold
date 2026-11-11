@@ -24,6 +24,33 @@ CLI flags: `--check` (exit 1 if any output would change; no writes), `--dry-run`
 Each harness has a SessionStart hook that runs `tools/sync-agents.py --check` and halts the session when any
 output would change.
 
+## `tools/markdown.sh`
+
+Checks or reformats Markdown with a pinned dprint release and its Markdown plugin, which align table columns by
+display width and preserve source line wrapping. The script needs Node and `npx` on `PATH`.
+
+| Action              | Effect                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| `check [<file>...]` | Reports each file that is not formatting-clean and exits nonzero when one is found |
+| `fmt [<file>...]`   | Reformats the files in place                                                       |
+
+After dprint runs, both actions check every line against the [line cap](../policy/markdown.md#line-wrapping).
+
+| Line-cap check | Rule                                                                                             |
+| -------------- | ------------------------------------------------------------------------------------------------ |
+| Output         | `<file>:<line>: <n> characters, over the 120-character cap` on stderr for each line over the cap |
+| Exit           | Nonzero when any line is over the cap; lines are never re-flowed                                 |
+| Length         | Counted in characters, not bytes                                                                 |
+| Exempt         | Lines inside fenced code blocks, table rows, and lines carrying an `http://` or `https://` URL   |
+
+| Arguments   | Files processed                                                                                                                                                       |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| None        | Every tracked or untracked-but-not-ignored `*.md` present in the working tree, except the [`CLAUDE.md`](../CLAUDE.md) symlink and `ROADMAP.md` at the repository root |
+| `<file>...` | The named files, except any `ROADMAP.md` and any gitignored file, each skipped with a notice                                                                          |
+
+The `ROADMAP.md` and gitignored-file exclusions keep [planning documents](../policy/doc-quality.md#planning-documents)
+unformatted.
+
 ## `tools/setup-git-hooks.py`
 
 Wires the repository's git hooks and the Codex shim that fires them. Run from inside the project; discovers the

@@ -5,20 +5,21 @@ documents live under [`policy/`](../policy); [`policy/README.md`](../policy/READ
 
 ## Application
 
-Agents load the relevant policy file before performing the corresponding work:
-[`code-quality.md`](../policy/code-quality.md) before writing or reviewing code,
-[`doc-quality.md`](../policy/doc-quality.md) and [`markdown.md`](../policy/markdown.md) before writing or
-reviewing documentation, and [`verification-gates.md`](../policy/verification-gates.md) to determine which
-static checks every code change must pass before commit.
+Agents load the relevant policy file before performing the corresponding work.
+
+| Policy file                                                                                                              | Load before                                                      |
+| ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| [`code-quality.md`](../policy/code-quality.md)                                                                           | Writing or reviewing code                                        |
+| [`testing.md`](../policy/testing.md)                                                                                     | Writing or reviewing tests                                       |
+| [`doc-quality.md`](../policy/doc-quality.md), [`markdown.md`](../policy/markdown.md), [`charts.md`](../policy/charts.md) | Writing or reviewing documentation                               |
+| [`verification-gates.md`](../policy/verification-gates.md)                                                               | Committing a code change, to determine which checks it must pass |
 
 ## Ownership
 
-The scaffold owns the cross-project rule documents: [`code-quality.md`](../policy/code-quality.md),
-[`doc-quality.md`](../policy/doc-quality.md), and [`markdown.md`](../policy/markdown.md). Push overwrites
-them on every sync.
+[`manifest.yaml`](../manifest.yaml) marks each `policy/` file as managed or stub (see [`sync.md`](sync.md#manifest)).
 
-The client owns the project-specific files: [`policy/README.md`](../policy/README.md) (the index, since
-the client may add policy documents the scaffold does not ship) and
-[`policy/verification-gates.md`](../policy/verification-gates.md) (the concrete verification commands and
-pass criteria for the client's tech stack). The scaffold seeds both as stubs on first install and never
-overwrites them.
+| Owner    | Files                                                                                                                                      | Sync                                            |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| Scaffold | Every cross-project rule document under `policy/`: each file the manifest does not list as a stub                                          | Push overwrites it on every sync                |
+| Client   | [`policy/README.md`](../policy/README.md), the index; the client may add policy documents the scaffold does not ship                       | Seeded once on first install, never overwritten |
+| Client   | [`policy/verification-gates.md`](../policy/verification-gates.md), the verification commands and pass criteria for the client's tech stack | Seeded once on first install, never overwritten |

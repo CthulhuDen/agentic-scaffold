@@ -3,6 +3,10 @@
 # preserving source line wrapping (unlike Prettier, dprint keeps a wrapped inline code
 # span's continuation indented to the list-item content column).
 #
+# Because dprint preserves wrapping, it never reports a line over the 120-character cap
+# (policy/markdown.md). Both actions therefore also list every such line outside code
+# fences, tables, and lines carrying a URL, and fail when any is found; neither rewraps.
+#
 # Usage:
 #   tools/markdown.sh check [<file>...]   # report files that are not formatting-clean (exit nonzero)
 #   tools/markdown.sh fmt [<file>...]     # reformat in place
@@ -54,7 +58,10 @@ if [[ $# -gt 0 ]]; then
 else
   files=()
   while IFS= read -r -d '' f; do
-    files+=("$f")
+    # git lists a tracked file deleted from the working tree until the deletion is staged.
+    if [[ -e "$f" ]]; then
+      files+=("$f")
+    fi
   done < <(git ls-files -z --cached --others --exclude-standard '*.md' ':!CLAUDE.md' ':!ROADMAP.md')
 fi
 
@@ -63,4 +70,33 @@ if [[ ${#files[@]} -eq 0 ]]; then
   exit 0
 fi
 
-exec npx --yes "dprint@$DPRINT_VERSION" "$verb" --plugins "$MARKDOWN_PLUGIN" -- "${files[@]}"
+# Prints file:line for every line over the cap and exits nonzero when there is one.
+# Lengths count characters, not bytes.
+check_line_cap() {
+  node - "$@" <<'EOF'
+const fs = require("fs");
+const cap = 120;
+let over = 0;
+for (const file of process.argv.slice(2)) {
+  let fence = false;
+  fs.readFileSync(file, "utf8").split("\n").forEach((line, i) => {
+    if (/^\s*(```|~~~)/.test(line)) {
+      fence = !fence;
+      return;
+    }
+    if (fence || /^\s*\|/.test(line) || /https?:\/\//.test(line)) return;
+    const length = [...line].length;
+    if (length > cap) {
+      over++;
+      console.error(`${file}:${i + 1}: ${length} characters, over the ${cap}-character cap`);
+    }
+  });
+}
+process.exitCode = over > 0 ? 1 : 0;
+EOF
+}
+
+status=0
+npx --yes "dprint@$DPRINT_VERSION" "$verb" --plugins "$MARKDOWN_PLUGIN" -- "${files[@]}" || status=$?
+check_line_cap "${files[@]}" || status=1
+exit "$status"

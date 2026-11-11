@@ -59,14 +59,14 @@ flowchart TD
 
 The terminal handoff label in the source chart matches the entry label in the target chart exactly.
 
-Helper calls inside the current owner use assignment or plain call syntax.
+Calls inside the current owner use assignment or plain call syntax.
 
 Rectangular nodes carry calls, assignments, audit events, logs, and effects. Diamond nodes carry decisions. Other
 Mermaid shapes require domain meaning in the surrounding documentation.
 
 ## Calls and effects
 
-Helper calls that produce values use assignment form, and assigned values are reused downstream:
+Calls that produce values use assignment form, and assigned values are reused downstream:
 
 ```mermaid
 flowchart TD
@@ -87,8 +87,11 @@ Each node contains one operation at the current abstraction level. Separate call
 state writes, and terminal states use separate nodes. The separator line `---` describes the effect of the operation
 above it; it is not used to bundle a second operation into the same node.
 
-Node labels name real symbols — method calls, audit events, configured constants, ENTRY handoff targets, or
-self-describing operations like `send emptyReply`. Don't invent function-like primitives such as
+Node labels name real symbols at a component boundary — exported methods and functions, audit events, configured values,
+ENTRY handoff targets — or self-describing operations like `send emptyReply`. An unexported helper, an internal
+constant, or a lock or claim primitive is not named: the node states the operation or effect it produces, and the step
+keeps its place wherever its order is observable. A lock or claim outcome that changes visible behavior — which path
+writes, which one returns without effect — is charted as a decision. Don't invent function-like primitives such as
 `terminal_reply(kind, text)` that don't appear in code; a future reader can't grep for them.
 
 ## Audit and logs

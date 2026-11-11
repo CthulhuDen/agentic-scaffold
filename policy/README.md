@@ -10,3 +10,4 @@ For what the system does, see [`SPEC.md`](../SPEC.md) and the per-component spec
 | [`charts.md`](charts.md)                         | Documentation charts     |
 | [`code-quality.md`](code-quality.md)             | All code                 |
 | [`verification-gates.md`](verification-gates.md) | Local verification gates |
+| [`testing.md`](testing.md)                       | Testing                  |

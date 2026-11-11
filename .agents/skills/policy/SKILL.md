@@ -25,6 +25,11 @@ states is binding.
 Load [`policy/code-quality.md`](../../../policy/code-quality.md) before you write, edit, or review any code; every rule
 it states is binding.
 
+## Apply policy/testing.md before writing, editing, or reviewing tests.
+
+Load [`policy/testing.md`](../../../policy/testing.md) before you write, edit, or review any test; every rule it
+states is binding.
+
 ## Apply policy/doc-quality.md and policy/markdown.md + policy/charts.md to every documentation change or review.
 
 Load [`policy/doc-quality.md`](../../../policy/doc-quality.md) and [`policy/markdown.md`](../../../policy/markdown.md) +
