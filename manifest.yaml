@@ -32,6 +32,7 @@ stub:
   - path: policy/README.md
     indexes: policy/
   - path: policy/verification-gates.md
+    source: templates/verification-gates.md
   - path: .agents/skills/policy/project.md
   - path: .agents/skills/policy-editor/project.md
 
