@@ -28,7 +28,7 @@ import subprocess
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import NoReturn
 
@@ -150,14 +150,18 @@ def expand_managed_dir(
     ]
 
 
+def parse_manifest(manifest_path: Path) -> object:
+    try:
+        return yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as e:
+        die(f"failed to parse {MANIFEST_FILE}: {e}")
+
+
 def load_manifest(scaffold_root: Path) -> tuple[list[FileEntry], list[SymlinkEntry]]:
     manifest_path = scaffold_root / MANIFEST_FILE
     if not manifest_path.exists():
         die(f"manifest not found at {manifest_path}")
-    try:
-        parsed = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as e:
-        die(f"failed to parse {MANIFEST_FILE}: {e}")
+    parsed = parse_manifest(manifest_path)
     data = require_mapping({} if parsed is None else parsed, MANIFEST_FILE)
 
     stubs = require_list(data.get("stub"), "stub")
@@ -310,9 +314,7 @@ def can_pull_directly_to_main(repo: Path, recorded: str) -> bool:
         return False
     if recorded == main_sha and is_ancestor(repo, upstream_sha, main_sha):
         return True
-    if recorded == upstream_sha and is_ancestor(repo, main_sha, upstream_sha):
-        return True
-    return False
+    return recorded == upstream_sha and is_ancestor(repo, main_sha, upstream_sha)
 
 
 def replace_block(text: str, begin: str, end: str, block: str) -> str:
@@ -539,7 +541,7 @@ def pull(scaffold_root: Path, client_root: Path, *, no_commit: bool = False) -> 
         )
         return
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     branch = f"incoming/{client_name}-{timestamp}"
     git(scaffold_root, ["checkout", "-b", branch, recorded])
 
@@ -578,7 +580,7 @@ def find_scaffold_root() -> Path:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").partition("\n")[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
     for name in ("push", "pull"):
         sp = sub.add_parser(name)

@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 from typing import NoReturn
 
-
 # Codex provisions a workspace without firing git hooks, so the agent-file
 # regeneration that post-checkout drives never runs there. This environment
 # file makes Codex invoke the hook during setup; it is seeded once and then
@@ -41,9 +40,9 @@ def git_path(*args: str) -> Path:
             capture_output=True,
             text=True,
         )
+        return Path(out.stdout.strip())
     except (subprocess.CalledProcessError, FileNotFoundError) as exc:
         die(f"git {' '.join(args)} failed: {exc}")
-    return Path(out.stdout.strip())
 
 
 def same_symlink_target(link: Path, target: Path) -> bool:
